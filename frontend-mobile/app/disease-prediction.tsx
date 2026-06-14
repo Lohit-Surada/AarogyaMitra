@@ -22,7 +22,7 @@ export default function DiseasePredictionScreen() {
     try {
       // AbortController for request timeout (10 seconds)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render cold start
 
       // Use the deployed Render ML service URL
       const apiUrl = 'https://aarogyamitra-13.onrender.com/api/predict-disease';
@@ -55,13 +55,13 @@ export default function DiseasePredictionScreen() {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         Alert.alert(
-          'Connection Timeout',
-          'The ML service did not respond in time. Make sure the Flask disease-prediction server is running on port 5000.\n\nRun: python ml_services/Disease_Prediction/app.py'
+          'Service Waking Up',
+          'The ML service is starting up (Render free tier). Please wait 30–60 seconds and try again — it will be fast after the first request!'
         );
       } else {
         Alert.alert(
           'Prediction Failed',
-          `${error.message}\n\nEnsure the Flask ML server is running:\npython ml_services/Disease_Prediction/app.py`
+          `${error.message}\n\nThe service may be warming up. Please try again in 30 seconds.`
         );
       }
       console.log('Prediction error:', error.message || error);

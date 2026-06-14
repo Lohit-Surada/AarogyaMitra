@@ -50,7 +50,7 @@ export default function ChatbotScreen() {
     setInput('');
     setLoading(true);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s for Render cold start
 
     try {
       // Call Spring Boot backend endpoint for chatbot
@@ -74,8 +74,8 @@ export default function ChatbotScreen() {
       setMessages(prev => [...prev, { sender: BOT, text: data.reply || 'Sorry, I could not process your request.' }]);
     } catch (e: any) {
       const reply = e.name === 'AbortError'
-        ? 'The chatbot server did not respond in time. Please make sure the Spring Boot backend is running on port 8016.'
-        : `Sorry, there was a problem connecting to the server. Please make sure the Spring Boot backend is running on port 8016.`;
+        ? '⏳ The chatbot is waking up (Render free tier sleeps when idle). Please wait 30–60 seconds and try again — it will be fast after the first request!'
+        : `Sorry, there was a problem connecting to the server. Please try again in a moment.`;
       setMessages(prev => [...prev, { sender: BOT, text: reply }]);
     } finally {
       clearTimeout(timeoutId);

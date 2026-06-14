@@ -16,6 +16,8 @@
       }
     },
     "android": {
+      "package": "com.aarogyamitra.app",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -37,6 +39,9 @@
     "extra": {
       "router": {
         "root": "frontend-mobile/app"
+      },
+      "eas": {
+        "projectId": "1c7325fc-46c9-4a1d-a86e-7f12f7b187ad"
       }
     },
     "plugins": [
