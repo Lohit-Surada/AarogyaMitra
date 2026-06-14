@@ -24,15 +24,8 @@ export default function DiseasePredictionScreen() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      // Determine the API URL dynamically
-      let apiUrl = 'http://192.168.1.5:5000/api/predict-disease';
-      
-      // Try to get the host IP dynamically if running in Expo Go
-      const hostUri = Constants.expoConfig?.hostUri;
-      if (hostUri) {
-        const ip = hostUri.split(':')[0];
-        apiUrl = `http://${ip}:5000/api/predict-disease`;
-      }
+      // Use the deployed Render ML service URL
+      const apiUrl = 'https://aarogyamitra-13.onrender.com/api/predict-disease';
 
       const response = await fetch(apiUrl, {
         method: 'POST',

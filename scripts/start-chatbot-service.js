@@ -53,7 +53,7 @@ function startWithFallback(command, args, fallback) {
 }
 
 async function startChatbotService() {
-  if (startedByThisProcess) {
+  if (process.env.AAROGYA_SKIP_CHATBOT_SERVICE === "1" || startedByThisProcess) {
     return;
   }
 

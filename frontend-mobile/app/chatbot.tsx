@@ -11,15 +11,9 @@ const USER = 'user';
 const BOT = 'bot';
 
 function getChatbotApiUrl() {
-  const hostUri = Constants.expoConfig?.hostUri;
-
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:8016/api/chatbot`;
-  }
-
-  return 'http://192.168.1.5:8016/api/chatbot';
+  return 'https://aarogyamitra-14.onrender.com/api/chat';
 }
+
 
 type ChatMessage = {
   sender: typeof USER | typeof BOT;
