@@ -23,6 +23,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
+import { Palette, Radius, Spacing } from '@/constants/theme';
 import { Place, LatLng, PlaceType, TravelMode, TravelRouteInfo } from '@/types/maps';
 import { geolocationService } from '@/services/maps/geolocationService';
 import { googleMapsService } from '@/services/maps/googleMapsService';
@@ -659,7 +660,7 @@ const { height } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Palette.background,
   },
   map: {
     flex: 1,
@@ -693,7 +694,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#e74c3c',
+    backgroundColor: Palette.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -705,10 +706,10 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   hospitalMarker: {
-    backgroundColor: '#e74c3c',
+    backgroundColor: Palette.danger,
   },
   pharmacyMarker: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: Palette.secondary,
   },
   selectedMarker: {
     transform: [{ scale: 1.3 }],
@@ -782,13 +783,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     gap: 6,
   },
   activeTab: {
-    backgroundColor: '#3498db',
+    backgroundColor: Palette.primary,
   },
   tabIcon: {
     fontSize: 16,

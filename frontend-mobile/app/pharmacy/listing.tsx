@@ -7,12 +7,14 @@ import {
   StyleSheet,
   TextInput,
   View,
+  Text,
+  TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { getBackendUrl } from '@/utils/api';
+import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 
 type Product = {
   id: number;
@@ -26,426 +28,358 @@ type Product = {
 };
 
 const SORT_OPTIONS = [
-  { label: 'Price: Low to High', value: 'price_asc' },
-  { label: 'Price: High to Low', value: 'price_desc' },
-  { label: 'Ratings', value: 'ratings_desc' },
+  { label: 'Price: Low → High', value: 'price_asc' },
+  { label: 'Price: High → Low', value: 'price_desc' },
+  { label: 'Top Rated', value: 'ratings_desc' },
 ];
 
-export default function ProductListing() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-
-  // Route parameters
-  const routeCategory = params.category as string || '';
-  const routeSearch = params.search as string || '';
-
-  // Local state
-  const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState(routeSearch);
-  const [category, setCategory] = useState(routeCategory);
-  
-  // Sorting & Filtering
-  const [sortBy, setSortBy] = useState('id');
-  const [sortDir, setSortDir] = useState('asc');
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [inStockOnly, setInStockOnly] = useState<boolean | null>(null);
-
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const fetchProducts = useCallback(async (pageNum: number, isInitial = false) => {
-    try {
-      if (isInitial) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
-
-      let url = getBackendUrl(
-        `/api/pharmacy/products?page=${pageNum}&size=8&sortBy=${sortBy}&sortDir=${sortDir}`
-      );
-
-      if (category) {
-        url += `&category=${encodeURIComponent(category)}`;
-      }
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-      if (inStockOnly) {
-        url += `&inStock=true`;
-      }
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Network error');
-      }
-
-      const data = await response.json();
-      const newProducts = data.content || [];
-
-      if (isInitial) {
-        setProducts(newProducts);
-      } else {
-        setProducts(prev => [...prev, ...newProducts]);
-      }
-
-      setHasMore(!data.last && newProducts.length > 0);
-    } catch (error) {
-      console.error('Error fetching products list:', error);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [category, search, inStockOnly, sortBy, sortDir]);
-
-  useEffect(() => {
-    setPage(0);
-    fetchProducts(0, true);
-  }, [category, search, inStockOnly, sortBy, sortDir, fetchProducts]);
-
-  const loadMoreProducts = () => {
-    if (!loadingMore && hasMore && !loading) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchProducts(nextPage, false);
-    }
-  };
-
-  const handleSortChange = (optionValue: string) => {
-    const [field, direction] = optionValue.split('_');
-    setSortBy(field);
-    setSortDir(direction);
-    setShowSortDropdown(false);
-  };
-
-  const renderProductItem = ({ item }: { item: Product }) => (
+function ProductCard({ item, onPress }: { item: Product; onPress: () => void }) {
+  return (
     <Pressable
-      style={styles.card}
-      onPress={() => router.push(`/pharmacy/${item.id}`)}>
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
+      onPress={onPress}
+    >
       <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
       {!item.inStock && (
-        <View style={styles.outOfStockBadge}>
-          <ThemedText style={styles.outOfStockText}>OUT OF STOCK</ThemedText>
+        <View style={styles.outBadge}>
+          <Text style={styles.outBadgeText}>OUT OF STOCK</Text>
         </View>
       )}
-      <View style={styles.cardContent}>
-        <ThemedText style={styles.categoryBadge}>{item.category}</ThemedText>
-        <ThemedText style={styles.nameText} numberOfLines={1}>
-          {item.name}
-        </ThemedText>
-        <ThemedText style={styles.manufacturerText}>{item.manufacturer}</ThemedText>
-        
+      <View style={styles.cardBody}>
+        <Text style={styles.cardCat} numberOfLines={1}>{item.category}</Text>
+        <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
+        <Text style={styles.cardMfr} numberOfLines={1}>{item.manufacturer}</Text>
         <View style={styles.cardFooter}>
-          <ThemedText style={styles.priceText}>₹{item.price.toFixed(2)}</ThemedText>
+          <Text style={styles.cardPrice}>₹{item.price.toFixed(0)}</Text>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#f59e0b" />
-            <ThemedText style={styles.ratingText}>{item.ratings}</ThemedText>
+            <Ionicons name="star" size={11} color="#F59E0B" />
+            <Text style={styles.ratingText}>{item.ratings}</Text>
           </View>
         </View>
       </View>
     </Pressable>
   );
+}
+
+export default function ProductListing() {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const routeCategory = (params.category as string) || '';
+  const routeSearch = (params.search as string) || '';
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState(routeSearch);
+  const [category] = useState(routeCategory);
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDir, setSortDir] = useState('asc');
+  const [showSort, setShowSort] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState<boolean | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchProducts = useCallback(
+    async (pageNum: number, isInitial = false) => {
+      try {
+        isInitial ? setLoading(true) : setLoadingMore(true);
+        let url = getBackendUrl(
+          `/api/pharmacy/products?page=${pageNum}&size=8&sortBy=${sortBy}&sortDir=${sortDir}`
+        );
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (inStockOnly) url += `&inStock=true`;
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Network error');
+        const data = await response.json();
+        const newProducts: Product[] = data.content || [];
+
+        isInitial
+          ? setProducts(newProducts)
+          : setProducts(prev => [...prev, ...newProducts]);
+        setHasMore(!data.last && newProducts.length > 0);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [category, search, inStockOnly, sortBy, sortDir]
+  );
+
+  useEffect(() => {
+    setPage(0);
+    fetchProducts(0, true);
+  }, [fetchProducts]);
+
+  const loadMore = () => {
+    if (!loadingMore && hasMore && !loading) {
+      const next = page + 1;
+      setPage(next);
+      fetchProducts(next, false);
+    }
+  };
+
+  const handleSort = (val: string) => {
+    const [field, dir] = val.split('_');
+    setSortBy(field);
+    setSortDir(dir);
+    setShowSort(false);
+  };
+
+  const activeSort = SORT_OPTIONS.find(o => o.value === `${sortBy}_${sortDir}`)?.label || 'Sort By';
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Header bar */}
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </Pressable>
-        <ThemedText style={styles.headerTitle}>
-          {category ? category : 'Pharmacy Shop'}
-        </ThemedText>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+          <Ionicons name="arrow-back" size={22} color={Palette.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {category || 'All Products'}
+        </Text>
         <Link href="/pharmacy/cart" asChild>
-          <Pressable style={styles.cartBtn}>
-            <Ionicons name="cart-outline" size={24} color="#0f172a" />
-          </Pressable>
+          <TouchableOpacity style={styles.headerBtn}>
+            <Ionicons name="cart-outline" size={22} color={Palette.text} />
+          </TouchableOpacity>
         </Link>
       </View>
 
-      {/* Subheaders (Search & filters) */}
+      {/* Search */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search-outline" size={16} color={Palette.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search within results..."
+          placeholderTextColor={Palette.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={16} color={Palette.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filter Bar */}
       <View style={styles.filterBar}>
-        <View style={styles.searchWrap}>
-          <Ionicons name="search-outline" size={18} color="#94a3b8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search within listing..."
-            placeholderTextColor="#94a3b8"
-            value={search}
-            onChangeText={setSearch}
+        <TouchableOpacity
+          style={styles.filterChip}
+          onPress={() => setShowSort(v => !v)}
+        >
+          <Ionicons name="funnel-outline" size={14} color={Palette.primary} />
+          <Text style={styles.filterChipText}>{activeSort}</Text>
+          <Ionicons name="chevron-down" size={12} color={Palette.primary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, inStockOnly && styles.filterChipActive]}
+          onPress={() => setInStockOnly(prev => (prev ? null : true))}
+        >
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={14}
+            color={inStockOnly ? '#fff' : Palette.primary}
           />
-          {search ? (
-            <Pressable onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={16} color="#94a3b8" />
-            </Pressable>
-          ) : null}
-        </View>
+          <Text style={[styles.filterChipText, inStockOnly && styles.filterChipTextActive]}>
+            In Stock
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Action buttons (Sort, Availability Filter) */}
-      <View style={styles.actionsBar}>
-        <Pressable style={styles.actionBtn} onPress={() => setShowSortDropdown(!showSortDropdown)}>
-          <Ionicons name="funnel-outline" size={16} color="#334155" />
-          <ThemedText style={styles.actionBtnText}>Sort By</ThemedText>
-        </Pressable>
-
-        <Pressable
-          style={[styles.actionBtn, inStockOnly && styles.actionBtnActive]}
-          onPress={() => setInStockOnly(prev => (prev ? null : true))}>
-          <Ionicons name="checkmark-circle-outline" size={16} color={inStockOnly ? '#ffffff' : '#334155'} />
-          <ThemedText style={[styles.actionBtnText, inStockOnly && styles.actionBtnTextActive]}>
-            In Stock Only
-          </ThemedText>
-        </Pressable>
-      </View>
-
-      {/* Sort Options Dropdown */}
-      {showSortDropdown && (
+      {/* Sort Dropdown */}
+      {showSort && (
         <View style={styles.sortDropdown}>
           {SORT_OPTIONS.map(opt => {
-            const isSelected = `${sortBy}_${sortDir}` === opt.value;
+            const isActive = `${sortBy}_${sortDir}` === opt.value;
             return (
-              <Pressable
+              <TouchableOpacity
                 key={opt.value}
-                style={[styles.sortItem, isSelected && styles.sortItemActive]}
-                onPress={() => handleSortChange(opt.value)}>
-                <ThemedText style={[styles.sortText, isSelected && styles.sortTextActive]}>
+                style={[styles.sortItem, isActive && styles.sortItemActive]}
+                onPress={() => handleSort(opt.value)}
+              >
+                {isActive && <Ionicons name="checkmark" size={14} color={Palette.secondary} />}
+                <Text style={[styles.sortText, isActive && styles.sortTextActive]}>
                   {opt.label}
-                </ThemedText>
-              </Pressable>
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </View>
       )}
 
-      {/* Main List */}
+      {/* List */}
       {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#10b981" />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Palette.secondary} />
+          <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       ) : products.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Ionicons name="cube-outline" size={60} color="#cbd5e1" />
-          <ThemedText style={styles.emptyText}>No products found matching filters</ThemedText>
+        <View style={styles.centered}>
+          <Ionicons name="cube-outline" size={64} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>No products found</Text>
+          <Text style={styles.emptySubtitle}>Try adjusting your filters or search term</Text>
         </View>
       ) : (
         <FlatList
           data={products}
           keyExtractor={item => item.id.toString()}
-          renderItem={renderProductItem}
+          renderItem={({ item }) => (
+            <ProductCard
+              item={item}
+              onPress={() => router.push(`/pharmacy/${item.id}`)}
+            />
+          )}
           numColumns={2}
           contentContainerStyle={styles.listContainer}
-          onEndReached={loadMoreProducts}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={() =>
+          columnWrapperStyle={styles.row}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          showsVerticalScrollIndicator={false}
+          ListFooterComponent={
             loadingMore ? (
-              <ActivityIndicator size="small" color="#10b981" style={{ marginVertical: 16 }} />
+              <ActivityIndicator
+                size="small"
+                color={Palette.secondary}
+                style={{ marginVertical: 20 }}
+              />
             ) : null
           }
         />
       )}
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
+  container: { flex: 1, backgroundColor: Palette.background },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
+    borderBottomColor: Palette.border,
   },
-  backBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  cartBtn: {
-    padding: 4,
-  },
-  filterBar: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
+  headerBtn: { padding: 4 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: Palette.text, flex: 1, textAlign: 'center' },
+
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: Spacing.md,
+    marginVertical: 10,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#f1f5f9',
-  },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#334155',
-  },
-  actionsBar: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: Palette.border,
+    gap: 10,
+  },
+  searchInput: { flex: 1, fontSize: 14, color: Palette.text },
+
+  filterBar: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: Radius.round,
+    borderWidth: 1.5,
+    borderColor: Palette.primary,
+    backgroundColor: '#E0F2FE',
   },
-  actionBtnActive: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  actionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  actionBtnTextActive: {
-    color: '#ffffff',
-  },
+  filterChipActive: { backgroundColor: Palette.primary, borderColor: Palette.primary },
+  filterChipText: { fontSize: 12, fontWeight: '700', color: Palette.primary },
+  filterChipTextActive: { color: '#fff' },
+
   sortDropdown: {
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 8,
-    position: 'absolute',
-    top: 155,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 3,
+    backgroundColor: '#fff',
+    marginHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Palette.border,
+    marginBottom: 8,
+    overflow: 'hidden',
+    ...Shadows.sm,
   },
   sortItem: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
   },
-  sortItemActive: {
-    backgroundColor: '#f1f5f9',
-  },
-  sortText: {
-    fontSize: 14,
-    color: '#334155',
-  },
-  sortTextActive: {
-    color: '#10b981',
-    fontWeight: 'bold',
-  },
-  loadingWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  emptyText: {
-    color: '#64748b',
-    fontSize: 16,
-  },
-  listContainer: {
-    padding: 8,
-  },
+  sortItemActive: { backgroundColor: '#F0FDF4' },
+  sortText: { fontSize: 14, color: Palette.text },
+  sortTextActive: { color: Palette.secondary, fontWeight: '700' },
+
+  listContainer: { padding: Spacing.sm, paddingBottom: 40 },
+  row: { justifyContent: 'space-between' },
+
   card: {
-    flex: 1,
-    backgroundColor: '#ffffff',
+    width: '48.5%',
+    backgroundColor: '#fff',
     borderRadius: 16,
-    margin: 6,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+    marginBottom: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Palette.border,
+    ...Shadows.sm,
   },
-  cardImage: {
-    width: '100%',
-    height: 120,
-    resizeMode: 'cover',
-  },
-  outOfStockBadge: {
+  cardImage: { width: '100%', height: 120, resizeMode: 'cover' },
+  outBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#ef4444',
+    backgroundColor: Palette.danger,
+    borderRadius: 5,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
   },
-  outOfStockText: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-  cardContent: {
-    padding: 10,
-  },
-  categoryBadge: {
+  outBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+  cardBody: { padding: 10 },
+  cardCat: {
     fontSize: 9,
-    color: '#94a3b8',
+    color: Palette.textMuted,
     textTransform: 'uppercase',
-    fontWeight: 'bold',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  nameText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginTop: 2,
-  },
-  manufacturerText: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
-  },
+  cardName: { fontSize: 13, fontWeight: '700', color: Palette.text, marginTop: 2, lineHeight: 18 },
+  cardMfr: { fontSize: 11, color: Palette.textMuted, marginTop: 2 },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
   },
-  priceText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#10b981',
-  },
-  ratingRow: {
-    flexDirection: 'row',
+  cardPrice: { fontSize: 14, fontWeight: '800', color: Palette.secondary },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
+
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 2,
+    gap: 10,
+    paddingBottom: 40,
   },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#475569',
-  },
+  loadingText: { fontSize: 14, color: Palette.textMuted, marginTop: 8 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: Palette.text },
+  emptySubtitle: { fontSize: 13, color: Palette.textMuted, textAlign: 'center', paddingHorizontal: 40 },
 });

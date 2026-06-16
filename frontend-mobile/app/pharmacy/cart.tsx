@@ -1,20 +1,22 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
+  Text,
+  TouchableOpacity,
+  SafeAreaView,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/lib/auth';
 import { getBackendUrl } from '@/utils/api';
+import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 
 type CartItem = {
   id: number;
@@ -37,26 +39,29 @@ export default function CartScreen() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Coupon state
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [discountPercentage, setDiscountPercentage] = useState(0);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(getBackendUrl(`/api/pharmacy/cart?email=${userEmail}`));
-      if (response.ok) {
-        const data = await response.json();
+      const res = await fetch(getBackendUrl(`/api/pharmacy/cart?email=${userEmail}`));
+      if (res.ok) {
+        const data = await res.json();
         setCartItems(data);
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
     } finally {
       setLoading(false);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
-  }, [userEmail]);
+  }, [userEmail, fadeAnim]);
 
   useEffect(() => {
     fetchCart();
@@ -64,18 +69,12 @@ export default function CartScreen() {
 
   const updateQuantity = async (productId: number, newQty: number) => {
     try {
-      const response = await fetch(getBackendUrl('/api/pharmacy/cart/update'), {
+      const res = await fetch(getBackendUrl('/api/pharmacy/cart/update'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          productId,
-          quantity: newQty,
-        }),
+        body: JSON.stringify({ email: userEmail, productId, quantity: newQty }),
       });
-      if (response.ok) {
-        fetchCart();
-      }
+      if (res.ok) fetchCart();
     } catch (error) {
       console.error(error);
     }
@@ -83,13 +82,11 @@ export default function CartScreen() {
 
   const removeItem = async (productId: number) => {
     try {
-      const response = await fetch(
+      const res = await fetch(
         getBackendUrl(`/api/pharmacy/cart/remove?email=${userEmail}&productId=${productId}`),
         { method: 'DELETE' }
       );
-      if (response.ok) {
-        fetchCart();
-      }
+      if (res.ok) fetchCart();
     } catch (error) {
       console.error(error);
     }
@@ -109,8 +106,8 @@ export default function CartScreen() {
       Alert.alert('Coupon Applied', 'You saved 50% on your order!');
     } else if (code === 'SUPP500') {
       setAppliedCoupon('SUPP500');
-      setDiscountPercentage(0); // Free delivery coupon
-      Alert.alert('Coupon Applied', 'Free delivery applied to your order!');
+      setDiscountPercentage(0);
+      Alert.alert('Coupon Applied', 'Free delivery applied!');
     } else {
       Alert.alert('Invalid Coupon', 'This coupon code does not exist.');
     }
@@ -122,31 +119,19 @@ export default function CartScreen() {
     setDiscountPercentage(0);
   };
 
-  // Price calculations
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const discount = (subtotal * discountPercentage) / 100;
   
-  // Free delivery conditions
   let deliveryFee = 50;
-  if (subtotal > 500 || appliedCoupon === 'SUPP500' || subtotal === 0) {
-    deliveryFee = 0;
-  }
+  if (subtotal > 500 || appliedCoupon === 'SUPP500' || subtotal === 0) deliveryFee = 0;
 
-  // 12% GST calculation on discounted subtotal
   const gst = (subtotal - discount) * 0.12;
   const total = subtotal - discount + deliveryFee + gst;
 
   const handleCheckout = () => {
-    if (cartItems.length === 0) {
-      Alert.alert('Empty Cart', 'Please add items to your cart before checking out.');
-      return;
-    }
-    // Check if any product is out of stock
-    const outOfStockItems = cartItems.filter(item => !item.product.inStock);
-    if (outOfStockItems.length > 0) {
-      Alert.alert('Out of Stock Items', 'Some items in your cart are unavailable. Please remove them.');
-      return;
-    }
+    if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items to checkout.');
+    const outOfStock = cartItems.filter(item => !item.product.inStock);
+    if (outOfStock.length > 0) return Alert.alert('Out of Stock', 'Remove unavailable items to proceed.');
 
     router.push({
       pathname: '/pharmacy/checkout',
@@ -160,138 +145,137 @@ export default function CartScreen() {
     });
   };
 
-  const renderCartItem = ({ item }: { item: CartItem }) => (
-    <View style={styles.card}>
-      <Image source={{ uri: item.product.imageUrl }} style={styles.productImg} />
-      <View style={styles.cardDetails}>
-        <ThemedText style={styles.productName} numberOfLines={1}>
-          {item.product.name}
-        </ThemedText>
-        <ThemedText style={styles.productPrice}>₹{item.product.price.toFixed(2)}</ThemedText>
+  const renderItem = ({ item }: { item: CartItem }) => (
+    <View style={styles.cartCard}>
+      <Image source={{ uri: item.product.imageUrl }} style={styles.cartImg} />
+      <View style={styles.cartBody}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={styles.itemName} numberOfLines={1}>{item.product.name}</Text>
+          <TouchableOpacity onPress={() => removeItem(item.product.id)} hitSlop={10}>
+            <Ionicons name="trash-outline" size={18} color={Palette.danger} />
+          </TouchableOpacity>
+        </View>
+        
+        <Text style={styles.itemCat}>{item.product.category}</Text>
+        
+        {!item.product.inStock && (
+          <Text style={styles.outOfStockTxt}>Out of Stock</Text>
+        )}
 
-        <View style={styles.actionsRow}>
-          {/* Quantity selector */}
+        <View style={styles.cartFooter}>
+          <Text style={styles.itemPrice}>₹{item.product.price.toFixed(0)}</Text>
+          
           <View style={styles.qtyBox}>
-            <Pressable
-              style={styles.qtyBtn}
-              onPress={() => updateQuantity(item.product.id, item.quantity - 1)}>
-              <Ionicons name="remove" size={16} color="#334155" />
-            </Pressable>
-            <ThemedText style={styles.qtyText}>{item.quantity}</ThemedText>
-            <Pressable
-              style={styles.qtyBtn}
-              onPress={() => updateQuantity(item.product.id, item.quantity + 1)}>
-              <Ionicons name="add" size={16} color="#334155" />
-            </Pressable>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.product.id, item.quantity - 1)}>
+              <Ionicons name="remove" size={14} color={Palette.text} />
+            </TouchableOpacity>
+            <Text style={styles.qtyVal}>{item.quantity}</Text>
+            <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.product.id, item.quantity + 1)}>
+              <Ionicons name="add" size={14} color={Palette.text} />
+            </TouchableOpacity>
           </View>
-
-          {/* Delete item */}
-          <Pressable style={styles.deleteBtn} onPress={() => removeItem(item.product.id)}>
-            <Ionicons name="trash-outline" size={20} color="#ef4444" />
-          </Pressable>
         </View>
       </View>
     </View>
   );
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </Pressable>
-        <ThemedText style={styles.headerTitle}>Shopping Cart</ThemedText>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color={Palette.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Shopping Cart</Text>
+        <View style={{ width: 32 }} />
       </View>
 
       {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#10b981" />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Palette.secondary} />
         </View>
       ) : cartItems.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Ionicons name="cart-outline" size={80} color="#cbd5e1" />
-          <ThemedText style={styles.emptyText}>Your cart is empty</ThemedText>
-          <Pressable style={styles.shopBtn} onPress={() => router.push('/pharmacy')}>
-            <ThemedText style={styles.shopBtnText}>Shop Now</ThemedText>
-          </Pressable>
+        <View style={styles.centered}>
+          <Ionicons name="cart-outline" size={64} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptySub}>Looks like you haven't added anything yet.</Text>
+          <TouchableOpacity style={styles.shopBtn} onPress={() => router.push('/pharmacy')}>
+            <Text style={styles.shopBtnText}>Start Shopping</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={{ flex: 1 }}>
-          <FlatList
+          <Animated.FlatList
+            style={{ opacity: fadeAnim }}
             data={cartItems}
             keyExtractor={item => item.id.toString()}
-            renderItem={renderCartItem}
+            renderItem={renderItem}
             contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
             ListFooterComponent={() => (
               <View style={styles.footerDetails}>
-                {/* Coupon entry */}
-                <View style={styles.couponContainer}>
+                {/* Coupon */}
+                <View style={styles.couponBox}>
                   {appliedCoupon ? (
-                    <View style={styles.couponAppliedRow}>
-                      <Ionicons name="pricetag" size={18} color="#10b981" />
-                      <ThemedText style={styles.couponAppliedText}>
-                        Coupon {appliedCoupon} Applied!
-                      </ThemedText>
-                      <Pressable onPress={removeCoupon}>
-                        <Ionicons name="close-circle" size={18} color="#ef4444" />
-                      </Pressable>
+                    <View style={styles.couponApplied}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="pricetag" size={18} color="#10B981" />
+                        <Text style={styles.couponAppliedTxt}>'{appliedCoupon}' applied!</Text>
+                      </View>
+                      <TouchableOpacity onPress={removeCoupon}>
+                        <Ionicons name="close-circle" size={20} color={Palette.danger} />
+                      </TouchableOpacity>
                     </View>
                   ) : (
                     <View style={styles.couponInputRow}>
+                      <Ionicons name="ticket-outline" size={20} color={Palette.primary} />
                       <TextInput
                         style={styles.couponInput}
-                        placeholder="Promo Code (HEALTH10, WELCOME50)"
-                        placeholderTextColor="#94a3b8"
+                        placeholder="Enter Promo Code"
+                        placeholderTextColor={Palette.textMuted}
                         value={couponCode}
                         onChangeText={setCouponCode}
                         autoCapitalize="characters"
                       />
-                      <Pressable style={styles.couponBtn} onPress={handleApplyCoupon}>
-                        <ThemedText style={styles.couponBtnText}>Apply</ThemedText>
-                      </Pressable>
+                      <TouchableOpacity style={styles.couponBtn} onPress={handleApplyCoupon}>
+                        <Text style={styles.couponBtnTxt}>Apply</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
 
-                {/* Price summary */}
-                <View style={styles.summaryCard}>
-                  <ThemedText style={styles.summaryTitle}>Bill Details</ThemedText>
+                {/* Bill Summary */}
+                <View style={styles.billCard}>
+                  <Text style={styles.billTitle}>Bill Summary</Text>
                   
-                  <View style={styles.priceItem}>
-                    <ThemedText style={styles.priceItemLabel}>Items Subtotal</ThemedText>
-                    <ThemedText style={styles.priceItemValue}>₹{subtotal.toFixed(2)}</ThemedText>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Item Total</Text>
+                    <Text style={styles.billVal}>₹{subtotal.toFixed(2)}</Text>
                   </View>
 
                   {discount > 0 && (
-                    <View style={styles.priceItem}>
-                      <ThemedText style={[styles.priceItemLabel, { color: '#10b981' }]}>Discount</ThemedText>
-                      <ThemedText style={[styles.priceItemValue, { color: '#10b981' }]}>- ₹{discount.toFixed(2)}</ThemedText>
+                    <View style={styles.billRow}>
+                      <Text style={[styles.billLabel, { color: '#10B981' }]}>Discount</Text>
+                      <Text style={[styles.billVal, { color: '#10B981' }]}>- ₹{discount.toFixed(2)}</Text>
                     </View>
                   )}
 
-                  <View style={styles.priceItem}>
-                    <ThemedText style={styles.priceItemLabel}>GST (12%)</ThemedText>
-                    <ThemedText style={styles.priceItemValue}>₹{gst.toFixed(2)}</ThemedText>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Taxes & GST (12%)</Text>
+                    <Text style={styles.billVal}>₹{gst.toFixed(2)}</Text>
                   </View>
 
-                  <View style={styles.priceItem}>
-                    <ThemedText style={styles.priceItemLabel}>Delivery Charges</ThemedText>
-                    <ThemedText style={styles.priceItemValue}>
-                      {deliveryFee === 0 ? (
-                        <ThemedText style={{ color: '#10b981', fontWeight: 'bold' }}>FREE</ThemedText>
-                      ) : (
-                        `₹${deliveryFee.toFixed(2)}`
-                      )}
-                    </ThemedText>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>Delivery Fee</Text>
+                    <Text style={[styles.billVal, deliveryFee === 0 && { color: '#10B981' }]}>
+                      {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee.toFixed(2)}`}
+                    </Text>
                   </View>
 
                   <View style={styles.divider} />
 
                   <View style={styles.totalRow}>
-                    <ThemedText style={styles.totalLabel}>Total Payable</ThemedText>
-                    <ThemedText style={styles.totalValue}>₹{total.toFixed(2)}</ThemedText>
+                    <Text style={styles.totalLabel}>To Pay</Text>
+                    <Text style={styles.totalVal}>₹{total.toFixed(2)}</Text>
                   </View>
                 </View>
               </View>
@@ -301,269 +285,132 @@ export default function CartScreen() {
           {/* Checkout Bar */}
           <View style={styles.checkoutBar}>
             <View>
-              <ThemedText style={styles.totalPayText}>₹{total.toFixed(2)}</ThemedText>
-              <ThemedText style={styles.viewDetailsText}>View bill summary above</ThemedText>
+              <Text style={styles.barTotalLabel}>Total Amount</Text>
+              <Text style={styles.barTotalVal}>₹{total.toFixed(2)}</Text>
             </View>
-            <Pressable style={styles.checkoutBtn} onPress={handleCheckout}>
-              <ThemedText style={styles.checkoutBtnText}>Checkout</ThemedText>
-              <Ionicons name="arrow-forward" size={18} color="#ffffff" />
-            </Pressable>
+            <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout} activeOpacity={0.8}>
+              <Text style={styles.checkoutBtnTxt}>Proceed to Pay</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
           </View>
         </View>
       )}
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
+  safeArea: { flex: 1, backgroundColor: Palette.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
+    borderBottomColor: Palette.border,
   },
-  backBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  loadingWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  emptyText: {
-    color: '#64748b',
-    fontSize: 16,
-    marginBottom: 8,
-  },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Palette.text },
+
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: Palette.text, marginTop: 16 },
+  emptySub: { fontSize: 14, color: Palette.textMuted, marginTop: 8, textAlign: 'center' },
   shopBtn: {
-    backgroundColor: '#10b981',
+    marginTop: 24,
+    backgroundColor: Palette.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: Radius.md,
   },
-  shopBtnText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 120,
-  },
-  card: {
+  shopBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  listContent: { padding: Spacing.md, paddingBottom: 100 },
+
+  cartCard: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
+    borderColor: Palette.border,
+    ...Shadows.sm,
   },
-  productImg: {
-    width: 80,
-    height: 80,
-    resizeMode: 'contain',
-  },
-  cardDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  productName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  productPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#10b981',
-    marginTop: 4,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  qtyBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
-    padding: 2,
-    gap: 10,
-  },
-  qtyBtn: {
-    width: 28,
-    height: 28,
-    backgroundColor: '#ffffff',
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qtyText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#334155',
-  },
-  deleteBtn: {
-    padding: 4,
-  },
-  footerDetails: {
-    marginTop: 16,
-  },
-  couponContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  cartImg: { width: 70, height: 70, resizeMode: 'contain', borderRadius: Radius.sm, backgroundColor: '#F8FAFC' },
+  cartBody: { flex: 1, marginLeft: 12, justifyContent: 'center' },
+  itemName: { fontSize: 15, fontWeight: '700', color: Palette.text, paddingRight: 20 },
+  itemCat: { fontSize: 11, color: Palette.textMuted, marginTop: 2 },
+  outOfStockTxt: { fontSize: 11, color: Palette.danger, fontWeight: '600', marginTop: 4 },
+  
+  cartFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  itemPrice: { fontSize: 16, fontWeight: '800', color: Palette.text },
+  qtyBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: Radius.md, padding: 3, gap: 10 },
+  qtyBtn: { width: 26, height: 26, backgroundColor: '#fff', borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
+  qtyVal: { fontSize: 14, fontWeight: '700', color: Palette.text },
+
+  footerDetails: { marginTop: Spacing.md },
+
+  couponBox: {
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 16,
+    borderColor: Palette.border,
+    marginBottom: Spacing.md,
+    ...Shadows.sm,
   },
-  couponInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  couponInput: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  couponInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  couponInput: { flex: 1, fontSize: 14, color: Palette.text, paddingVertical: 8 },
+  couponBtn: { backgroundColor: '#E0F2FE', paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radius.md },
+  couponBtnTxt: { color: Palette.primary, fontWeight: '700', fontSize: 13 },
+  couponApplied: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  couponAppliedTxt: { color: '#10B981', fontWeight: '700', fontSize: 14 },
+
+  billCard: {
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    fontSize: 13,
-    color: '#0f172a',
+    borderColor: Palette.border,
+    ...Shadows.sm,
   },
-  couponBtn: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  couponBtnText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 13,
-  },
-  couponAppliedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  couponAppliedText: {
-    color: '#10b981',
-    fontWeight: 'bold',
-    fontSize: 13,
-    flex: 1,
-    marginLeft: 8,
-  },
-  summaryCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  summaryTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 14,
-  },
-  priceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  priceItemLabel: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  priceItemValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 12,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#10b981',
-  },
+  billTitle: { fontSize: 16, fontWeight: '700', color: Palette.text, marginBottom: 16 },
+  billRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  billLabel: { fontSize: 13, color: '#64748B' },
+  billVal: { fontSize: 13, fontWeight: '600', color: Palette.text },
+  divider: { height: 1, backgroundColor: Palette.border, marginVertical: 12 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel: { fontSize: 16, fontWeight: '700', color: Palette.text },
+  totalVal: { fontSize: 18, fontWeight: '800', color: Palette.secondary },
+
   checkoutBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    borderTopColor: Palette.border,
     flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...Shadows.md,
   },
-  totalPayText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
-  },
-  viewDetailsText: {
-    fontSize: 11,
-    color: '#64748b',
-  },
+  barTotalLabel: { fontSize: 12, color: Palette.textMuted },
+  barTotalVal: { fontSize: 20, fontWeight: '800', color: Palette.text },
   checkoutBtn: {
-    backgroundColor: '#10b981',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    backgroundColor: Palette.secondary,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: Radius.md,
     gap: 8,
   },
-  checkoutBtnText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
+  checkoutBtnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

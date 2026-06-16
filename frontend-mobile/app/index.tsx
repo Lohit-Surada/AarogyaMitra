@@ -1,367 +1,443 @@
-import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  Text,
+  Animated,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+} from 'react-native';
 import { router } from 'expo-router';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 
-type CardProps = {
+type ServiceItem = {
+  id: string;
   title: string;
-  buttonLabel: string;
-  onPress: () => void;
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  bgColor: string;
+  route: string;
 };
 
-function FeatureCard({ title, buttonLabel, onPress }: CardProps) {
-  return (
-    <View style={styles.card}>
-      <ThemedText type="subtitle" style={styles.cardTitle}>
-        {title}
-      </ThemedText>
-      <Pressable style={styles.cardButton} onPress={onPress}>
-        <ThemedText style={styles.cardButtonText}>{buttonLabel}</ThemedText>
-      </Pressable>
-    </View>
-  );
-}
+const SERVICES: ServiceItem[] = [
+  {
+    id: 'chatbot',
+    title: 'AI Doctor',
+    subtitle: 'Ask health questions',
+    icon: 'chatbubble-ellipses',
+    color: '#0B5A80',
+    bgColor: '#E0F2FE',
+    route: '/chatbot',
+  },
+  {
+    id: 'diagnosis',
+    title: 'AI Diagnosis',
+    subtitle: 'Symptom checker',
+    icon: 'medical',
+    color: '#10B981',
+    bgColor: '#D1FAE5',
+    route: '/disease-prediction',
+  },
+  {
+    id: 'maps',
+    title: 'Nearby Care',
+    subtitle: 'Hospitals & clinics',
+    icon: 'location',
+    color: '#F59E0B',
+    bgColor: '#FEF3C7',
+    route: '/maps',
+  },
+  {
+    id: 'pharmacy',
+    title: 'Pharmacy',
+    subtitle: 'Order medicines',
+    icon: 'storefront',
+    color: '#8B5CF6',
+    bgColor: '#EDE9FE',
+    route: '/pharmacy',
+  },
+];
 
-export default function Index() {
+const HEALTH_TIPS = [
+  '💧 Drink at least 8 glasses of water daily.',
+  '🏃 30 minutes of moderate exercise keeps the doctor away.',
+  '🛌 Adults need 7–9 hours of quality sleep per night.',
+  '🥗 Eat colourful vegetables — each colour packs different nutrients.',
+  '🧘 5 minutes of deep breathing can reduce stress immediately.',
+];
+
+export default function HomeScreen() {
   const { user, loading } = useAuth();
-  const [searchText, setSearchText] = useState('');
-  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [tipIndex] = useState(() => Math.floor(Math.random() * HEALTH_TIPS.length));
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, []);
 
   const userInitial = useMemo(() => {
-    const source = user?.displayName || user?.email || 'U';
-    return source.trim().charAt(0).toUpperCase();
+    const src = user?.displayName || user?.email || 'G';
+    return src.trim().charAt(0).toUpperCase();
   }, [user?.displayName, user?.email]);
 
-  const handleLoginPress = () => {
-    router.push('/login');
-  };
+  const firstName = useMemo(() => {
+    if (!user) return 'Guest';
+    const name = user.displayName || user.email || 'User';
+    return name.split(' ')[0].split('@')[0];
+  }, [user]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setDropdownVisible(false);
-      Alert.alert('Logged out', 'You have been signed out successfully.');
+      setMenuOpen(false);
     } catch {
-      Alert.alert('Logout failed', 'Please try again.');
+      Alert.alert('Logout Failed', 'Please try again.');
     }
   };
 
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }, []);
+
   return (
-    <ThemedView style={styles.page}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.navbar}>
-          <View style={styles.navLeft}>
-            <View style={styles.logoBadge}>
-              <ThemedText style={styles.logoBadgeText}>AM</ThemedText>
-            </View>
-            <View style={styles.brandBlock}>
-              <ThemedText type="title" style={styles.brandName}>
-                AarogyaMitra
-              </ThemedText>
-              <ThemedText style={styles.brandTagline}>Health assistance platform</ThemedText>
-            </View>
-          </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={Palette.background} />
 
-          <View style={styles.searchWrap}>
-            <TextInput
-              value={searchText}
-              onChangeText={setSearchText}
-              placeholder="Search diseases, pharmacy, maps..."
-              placeholderTextColor="#94a3b8"
-              style={styles.searchInput}
-            />
-          </View>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-          <View style={styles.navLinks}>
-            <Pressable onPress={() => Alert.alert('About', 'AarogyaMitra helps users explore health support features.') }>
-              <ThemedText style={styles.navLink}>About</ThemedText>
-            </Pressable>
-            <Pressable onPress={() => Alert.alert('Contact', 'Contact support from your app support channel.') }>
-              <ThemedText style={styles.navLink}>Contact</ThemedText>
-            </Pressable>
-          </View>
-
-          <View style={styles.profileArea}>
-            <Pressable
-              style={styles.profileButton}
-              onPress={() => setDropdownVisible(previous => !previous)}>
-              <View style={styles.avatarCircle}>
-                <ThemedText style={styles.avatarText}>{userInitial}</ThemedText>
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="heart-half" size={20} color="#fff" />
               </View>
               <View>
-                <ThemedText style={styles.profileName}>
-                  {loading ? 'Loading...' : user?.displayName || user?.email || 'Guest'}
-                </ThemedText>
-                <ThemedText style={styles.profileRole}>
-                  {user ? 'Logged in user' : 'Guest user'}
-                </ThemedText>
+                <Text style={styles.appName}>AarogyaMitra</Text>
+                <Text style={styles.appTagline}>Health Assistance Platform</Text>
               </View>
-            </Pressable>
+            </View>
 
-            {dropdownVisible ? (
-              <View style={styles.dropdown}>
-                <ThemedText style={styles.dropdownLabel}>Profile details</ThemedText>
-                <ThemedText style={styles.dropdownValue}>{user?.displayName || 'No display name'}</ThemedText>
-                <ThemedText style={styles.dropdownValue}>{user?.email || 'No email'}</ThemedText>
-                {user ? (
-                  <Pressable style={styles.dropdownAction} onPress={handleLogout}>
-                    <ThemedText style={styles.dropdownActionText}>Logout</ThemedText>
-                  </Pressable>
-                ) : (
-                  <Pressable style={styles.dropdownAction} onPress={handleLoginPress}>
-                    <ThemedText style={styles.dropdownActionText}>Login</ThemedText>
-                  </Pressable>
-                )}
-              </View>
-            ) : null}
+            {/* Profile / Auth button */}
+            <View>
+              <TouchableOpacity
+                style={styles.avatarBtn}
+                onPress={() => setMenuOpen(v => !v)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarText}>{userInitial}</Text>
+                </View>
+              </TouchableOpacity>
+
+              {menuOpen && (
+                <View style={styles.dropdownMenu}>
+                  {user ? (
+                    <>
+                      <Text style={styles.menuName}>{user.displayName || user.email}</Text>
+                      <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text>
+                      <View style={styles.menuDivider} />
+                      <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+                        <Ionicons name="log-out-outline" size={16} color={Palette.danger} />
+                        <Text style={[styles.menuItemText, { color: Palette.danger }]}>Sign Out</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => { setMenuOpen(false); router.push('/login'); }}
+                    >
+                      <Ionicons name="log-in-outline" size={16} color={Palette.primary} />
+                      <Text style={[styles.menuItemText, { color: Palette.primary }]}>Sign In</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
-        </View>
 
-        <View style={styles.hero}>
-          <ThemedText type="title" style={styles.heroTitle}>
-            Your health assistance hub in one place.
-          </ThemedText>
-          <ThemedText style={styles.heroSubtitle}>
-            Find guidance, explore services, and move from symptoms to support faster.
-          </ThemedText>
-        </View>
+          {/* ── Greeting Banner ── */}
+          <View style={styles.greetingBanner}>
+            <View style={styles.greetingLeft}>
+              <Text style={styles.greetingText}>{greeting},</Text>
+              <Text style={styles.greetingName}>{firstName} 👋</Text>
+              <Text style={styles.greetingSubtitle}>How are you feeling today?</Text>
+            </View>
+            <View style={styles.greetingIcon}>
+              <Ionicons name="fitness" size={48} color="rgba(255,255,255,0.3)" />
+            </View>
+          </View>
 
-        <View style={styles.cardGrid}>
-          <FeatureCard
-            title="AI Chatbot"
-            buttonLabel="Ask Anything"
-            onPress={() => router.push('/chatbot')}
-          />
-          <FeatureCard
-            title="Disease Prediction"
-            buttonLabel="Predict"
-            onPress={() => router.push('/disease-prediction')}
-          />
-          <FeatureCard
-            title="Maps"
-            buttonLabel="Search location"
-            onPress={() => router.push('/maps')}
-          />
-          <FeatureCard
-            title="Pharmacy"
-            buttonLabel="Visit"
-            onPress={() => router.push('/pharmacy')}
-          />
-        </View>
+          {/* ── Health Tip ── */}
+          <View style={styles.tipCard}>
+            <View style={styles.tipIconWrap}>
+              <Ionicons name="bulb" size={20} color="#F59E0B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.tipLabel}>Daily Health Tip</Text>
+              <Text style={styles.tipText}>{HEALTH_TIPS[tipIndex]}</Text>
+            </View>
+          </View>
 
-        <View style={styles.footer}>
-          <ThemedText style={styles.footerText}>End of application</ThemedText>
-        </View>
+          {/* ── Services Grid ── */}
+          <Text style={styles.sectionTitle}>Our Services</Text>
+          <View style={styles.servicesGrid}>
+            {SERVICES.map((svc) => (
+              <Pressable
+                key={svc.id}
+                style={({ pressed }) => [styles.serviceCard, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                onPress={() => router.push(svc.route as any)}
+              >
+                <View style={[styles.serviceIconWrap, { backgroundColor: svc.bgColor }]}>
+                  <Ionicons name={svc.icon} size={28} color={svc.color} />
+                </View>
+                <Text style={styles.serviceTitle}>{svc.title}</Text>
+                <Text style={styles.serviceSubtitle}>{svc.subtitle}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* ── Quick Actions ── */}
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.quickBtn}
+              onPress={() => router.push('/chatbot')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={Palette.primary} />
+              <Text style={styles.quickBtnText}>Ask AI Doctor</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.quickBtn, styles.quickBtnGreen]}
+              onPress={() => router.push('/pharmacy')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="cart-outline" size={20} color="#10B981" />
+              <Text style={[styles.quickBtnText, { color: '#10B981' }]}>Buy Medicines</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Emergency Banner ── */}
+          <View style={styles.emergencyBanner}>
+            <Ionicons name="alert-circle" size={22} color={Palette.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.emergencyTitle}>Medical Emergency?</Text>
+              <Text style={styles.emergencyText}>Dial 112 immediately for ambulance services.</Text>
+            </View>
+          </View>
+
+          {/* ── Sign In Prompt (for guests) ── */}
+          {!loading && !user && (
+            <TouchableOpacity
+              style={styles.loginPrompt}
+              onPress={() => router.push('/login')}
+              activeOpacity={0.88}
+            >
+              <Ionicons name="person-circle-outline" size={20} color="#fff" />
+              <Text style={styles.loginPromptText}>Sign In to unlock full features</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+
+          <View style={{ height: 32 }} />
+        </Animated.View>
       </ScrollView>
-
-      {!user ? (
-        <Pressable style={styles.floatingLogin} onPress={handleLoginPress}>
-          <ThemedText style={styles.floatingLoginText}>Login</ThemedText>
-        </Pressable>
-      ) : null}
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 24,
-  },
-  navbar: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 16,
-    gap: 16,
-  },
-  navLeft: {
+  safeArea: { flex: 1, backgroundColor: Palette.background },
+  scroll: { padding: Spacing.md, paddingBottom: 40 },
+
+  // Header
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#22c55e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoBadgeText: {
-    color: '#052e16',
-    fontWeight: '800',
-  },
-  brandBlock: {
-    flexShrink: 1,
-  },
-  brandName: {
-    color: '#fff',
-    marginBottom: 2,
-  },
-  brandTagline: {
-    color: '#cbd5e1',
-    fontSize: 13,
-  },
-  searchWrap: {
-    width: '100%',
-  },
-  searchInput: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: '#0f172a',
-    fontSize: 15,
-  },
-  navLinks: {
-    flexDirection: 'row',
-    gap: 18,
-    flexWrap: 'wrap',
-  },
-  navLink: {
-    color: '#e2e8f0',
-    fontWeight: '700',
-  },
-  profileArea: {
-    alignSelf: 'flex-end',
-    position: 'relative',
-  },
-  profileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1e293b',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  avatarCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#38bdf8',
+    borderRadius: 12,
+    backgroundColor: Palette.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    color: '#082f49',
-    fontWeight: '800',
-  },
-  profileName: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  profileRole: {
-    color: '#cbd5e1',
-    fontSize: 12,
-  },
-  dropdown: {
-    marginTop: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
-    gap: 8,
-    minWidth: 220,
-    alignSelf: 'stretch',
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
-  },
-  dropdownLabel: {
-    color: '#0f172a',
-    fontWeight: '700',
-  },
-  dropdownValue: {
-    color: '#334155',
-  },
-  dropdownAction: {
-    marginTop: 6,
-    backgroundColor: '#111827',
-    borderRadius: 12,
+  appName: { fontSize: 17, fontWeight: '800', color: Palette.text },
+  appTagline: { fontSize: 11, color: Palette.textMuted },
+  avatarBtn: { position: 'relative' },
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: Palette.primary,
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E0F2FE',
   },
-  dropdownActionText: {
-    color: '#fff',
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+  // Dropdown
+  dropdownMenu: {
+    position: 'absolute',
+    right: 0,
+    top: 48,
+    backgroundColor: '#fff',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    minWidth: 200,
+    ...Shadows.lg,
+    zIndex: 999,
+  },
+  menuName: { fontSize: 15, fontWeight: '700', color: Palette.text },
+  menuEmail: { fontSize: 12, color: Palette.textMuted, marginTop: 2, maxWidth: 180 },
+  menuDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: Spacing.sm },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  menuItemText: { fontSize: 14, fontWeight: '600' },
+
+  // Greeting Banner
+  greetingBanner: {
+    backgroundColor: Palette.primary,
+    borderRadius: 20,
+    padding: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  greetingLeft: { flex: 1 },
+  greetingText: { fontSize: 14, color: 'rgba(255,255,255,0.75)' },
+  greetingName: { fontSize: 24, fontWeight: '800', color: '#fff', marginTop: 2 },
+  greetingSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  greetingIcon: { marginLeft: 8 },
+
+  // Health Tip
+  tipCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  tipIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipLabel: { fontSize: 11, fontWeight: '700', color: '#92400E', marginBottom: 3 },
+  tipText: { fontSize: 13, color: '#78350F', lineHeight: 19 },
+
+  // Sections
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '700',
+    color: Palette.text,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
   },
-  hero: {
-    gap: 10,
-  },
-  heroTitle: {
-    color: '#0f172a',
-  },
-  heroSubtitle: {
-    color: '#475569',
-    lineHeight: 22,
-  },
-  cardGrid: {
+
+  // Services Grid
+  servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
+    marginBottom: Spacing.md,
   },
-  card: {
-    width: '48%',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 18,
+  serviceCard: {
+    width: '47%',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 16,
-    minHeight: 150,
+    borderColor: '#E2E8F0',
+    ...Shadows.sm,
   },
-  cardTitle: {
-    color: '#0f172a',
-  },
-  cardButton: {
-    marginTop: 'auto',
-    backgroundColor: '#111827',
-    borderRadius: 999,
-    paddingVertical: 12,
+  serviceIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
   },
-  cardButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  footer: {
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+  serviceTitle: { fontSize: 15, fontWeight: '700', color: Palette.text },
+  serviceSubtitle: { fontSize: 12, color: Palette.textMuted, marginTop: 2 },
+
+  // Quick Actions
+  quickActions: { flexDirection: 'row', gap: 12, marginBottom: Spacing.md },
+  quickBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Palette.primary,
+    backgroundColor: '#E0F2FE',
   },
-  footerText: {
-    color: '#64748b',
-    fontWeight: '600',
+  quickBtnGreen: { borderColor: '#10B981', backgroundColor: '#D1FAE5' },
+  quickBtnText: { fontSize: 13, fontWeight: '700', color: Palette.primary },
+
+  // Emergency
+  emergencyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: '#FEE2E2',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  floatingLogin: {
-    position: 'absolute',
-    right: 16,
-    bottom: 20,
-    backgroundColor: '#111827',
-    borderRadius: 999,
-    paddingHorizontal: 18,
+  emergencyTitle: { fontSize: 14, fontWeight: '700', color: '#991B1B' },
+  emergencyText: { fontSize: 12, color: '#B91C1C', marginTop: 2 },
+
+  // Login Prompt
+  loginPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Palette.primary,
+    borderRadius: Radius.md,
     paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
+    marginBottom: Spacing.sm,
   },
-  floatingLoginText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
+  loginPromptText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
