@@ -13,14 +13,25 @@
         "session": {
           ".read": "auth != null",
           ".write": "auth != null"
+        },
+        "addresses": {
+          ".read": "auth != null",
+          ".write": "auth != null"
         }
+      }
+    },
+
+    "carts": {
+      "$sanitizedEmail": {
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
 
     "orders": {
       "$sanitizedEmail": {
+        ".read": "auth != null",
         "$orderId": {
-          ".read": "auth != null",
           ".write": "auth != null",
           ".validate": "newData.hasChildren(['orderId', 'userEmail', 'total', 'orderStatus'])"
         }

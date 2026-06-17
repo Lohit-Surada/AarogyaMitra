@@ -14,10 +14,12 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 import { saveOrderToFirebase } from '@/services/firebaseService';
-import RazorpayCheckout from 'react-native-razorpay';
+import { syncOrderToRTDB, sanitizeEmail } from '@/services/rtdbService';
+import { getCart, clearCart, CartItem } from '@/services/cartService';
+import { realtimeDb } from '@/lib/firebase';
+import { ref, get, set, push } from 'firebase/database';
 
 type Address = {
   id: number;
@@ -112,11 +114,15 @@ export default function CheckoutScreen() {
     if (!userEmail) return;
     try {
       setLoading(true);
-      const res = await authenticatedFetch('/api/pharmacy/addresses');
-      if (res.ok) {
-        const data = await res.json();
-        setAddresses(data);
-        if (data.length > 0) setSelectedAddressId(data[0].id);
+      const emailKey = sanitizeEmail(userEmail);
+      const snap = await get(ref(realtimeDb, `users/${emailKey}/addresses`));
+      if (snap.exists()) {
+        const data = snap.val();
+        const addrList = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setAddresses(addrList);
+        if (addrList.length > 0) setSelectedAddressId(addrList[0].id);
+      } else {
+        setAddresses([]);
       }
     } catch (error) {
       console.error(error);
@@ -134,32 +140,28 @@ export default function CheckoutScreen() {
       return Alert.alert('Missing Fields', 'Please fill in all address details.');
     }
     try {
-      const res = await authenticatedFetch('/api/pharmacy/addresses/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName,
-          phone: newPhone,
-          addressLine: newStreet,
-          city: newCity,
-          state: newStateVal,
-          zipCode: newZip,
-          latitude: 12.9716,
-          longitude: 77.5946,
-        }),
-      });
-      if (res.ok) {
-        const added = await res.json();
-        setShowAddAddress(false);
-        fetchAddresses();
-        setSelectedAddressId(added.id);
-        setNewName(''); setNewPhone(''); setNewStreet('');
-        setNewCity(''); setNewStateVal(''); setNewZip('');
-      } else {
-        Alert.alert('Error', 'Failed to add address.');
-      }
+      const emailKey = sanitizeEmail(userEmail);
+      const newAddrRef = push(ref(realtimeDb, `users/${emailKey}/addresses`));
+      const payload = {
+        name: newName,
+        phone: newPhone,
+        addressLine: newStreet,
+        city: newCity,
+        state: newStateVal,
+        zipCode: newZip,
+        latitude: 12.9716,
+        longitude: 77.5946,
+      };
+      await set(newAddrRef, payload);
+      
+      setShowAddAddress(false);
+      fetchAddresses();
+      setSelectedAddressId(newAddrRef.key as any);
+      setNewName(''); setNewPhone(''); setNewStreet('');
+      setNewCity(''); setNewStateVal(''); setNewZip('');
     } catch (error) {
       console.error(error);
+      Alert.alert('Error', 'Failed to add address.');
     }
   };
 
@@ -167,16 +169,11 @@ export default function CheckoutScreen() {
     if (!user) {
       return Alert.alert('Login Required', 'Please sign in first.', [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign In',
-          onPress: () => router.replace({ pathname: '/login', params: { returnUrl: '/pharmacy/cart' } }),
-        },
+        { text: 'Sign In', onPress: () => router.replace({ pathname: '/login', params: { returnUrl: '/pharmacy/cart' } }) },
       ]);
     }
     if (!selectedAddressId) return Alert.alert('Select Address', 'Please select a delivery address.');
     if (!legalConsent) return Alert.alert('Consent Required', 'You must agree to our Terms, Privacy Policy, and Refund Policy to proceed.');
-    if (!prescriptionUploaded) return Alert.alert('Prescription Required', 'Please attach a valid prescription to proceed with your order.');
-
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address) return;
 
@@ -184,89 +181,57 @@ export default function CheckoutScreen() {
 
     try {
       setPlacingOrder(true);
+      
+      const cartItems = await getCart();
+      if (cartItems.length === 0) {
+        setPlacingOrder(false);
+        return Alert.alert('Cart Empty', 'You have no items in your cart to place an order.');
+      }
 
-      const orderPayload = {
-        shippingAddress: fullAddr,
-        latitude: address.latitude ?? 12.9716,
-        longitude: address.longitude ?? 77.5946,
+      const orderId = `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+      const orderPayload: PlacedOrder = {
+        id: orderId as any,
+        orderStatus: 'PLACED',
+        paymentMethod: paymentMethod === 'cod' ? 'COD' : 'RAZORPAY_SIMULATED',
+        paymentStatus: paymentMethod === 'cod' ? 'PENDING' : 'PAID',
+        total: activeTotal,
         subtotal: baseSubtotal,
-        discount: baseDiscount,
         gst: baseGst,
         deliveryFee: activeDeliveryFee,
-        total: activeTotal,
+        shippingAddress: fullAddr,
+        createdAt: new Date().toISOString(),
+        orderItems: cartItems
       };
 
       if (paymentMethod === 'cod') {
         // --- COD Flow ---
-        const res = await authenticatedFetch('/api/pharmacy/orders/place-cod', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload),
-        });
-
-        if (res.ok) {
-          const order: PlacedOrder = await res.json();
-          saveOrderToFirebase(userEmail, order).catch(e => console.warn('[Firebase] Background sync failed:', e));
-          setPlacedOrder(order);
-          setSuccessVisible(true);
-        } else {
-          Alert.alert('Error', 'Could not complete checkout. Please try again.');
-        }
+        await syncOrderToRTDB(userEmail, orderPayload);
+        await clearCart();
+        setPlacedOrder(orderPayload);
+        setSuccessVisible(true);
+        setPlacingOrder(false);
       } else {
         // --- Razorpay Flow for Expo Go ---
-        // 1. Create Razorpay Order on Backend
-        const rzpCreateRes = await authenticatedFetch('/api/pharmacy/orders/create-razorpay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: activeTotal }),
-        });
-
-        if (!rzpCreateRes.ok) {
-          throw new Error('Failed to initialize payment');
-        }
-
-        const rzpCreateData = await rzpCreateRes.json();
-        const razorpayOrderId = rzpCreateData.id;
-
-        // 2. Alert user about Expo Go limitation, simulate success for testing
         Alert.alert(
           'Online Payment',
-          `Order ID: ${razorpayOrderId}\n\nNote: The native Razorpay SDK does not work inside the Expo Go app. In production, this would open a Web Payment Link or require a custom Dev Client build.\n\nSimulating successful payment...`,
+          `Order ID: ${orderId}\n\nNote: The native Razorpay SDK does not work inside the Expo Go app. Simulating successful payment...`,
           [
             {
               text: 'Simulate Success',
               onPress: async () => {
-                const finalPayload = {
-                  ...orderPayload,
-                  razorpayOrderId: razorpayOrderId,
-                  razorpayPaymentId: 'pay_simulated_123',
-                  razorpaySignature: 'simulated_signature_hash',
-                };
-
-                const placeRes = await authenticatedFetch('/api/pharmacy/orders/place-online', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(finalPayload),
-                });
-
-                if (placeRes.ok) {
-                  const order: PlacedOrder = await placeRes.json();
-                  saveOrderToFirebase(userEmail, order).catch(e => console.warn('[Firebase] Background sync failed:', e));
-                  setPlacedOrder(order);
-                  setSuccessVisible(true);
-                } else {
-                  Alert.alert('Error', 'Order creation failed.');
-                }
+                await syncOrderToRTDB(userEmail, orderPayload);
+                await clearCart();
+                setPlacedOrder(orderPayload);
+                setSuccessVisible(true);
                 setPlacingOrder(false);
               }
             }
           ]
         );
-        return; // Early return to let the alert callback handle state
       }
     } catch (error) {
-      Alert.alert('Error', 'Server connection error. Please check your internet.');
-    } finally {
+      Alert.alert('Error', 'Could not complete checkout. Please try again.');
       setPlacingOrder(false);
     }
   };
@@ -473,27 +438,6 @@ export default function CheckoutScreen() {
               <Text style={styles.speedSub}>1 Day · +₹50</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Prescription Upload */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>📄 Prescription Details</Text>
-          <Text style={{ fontSize: 13, color: Palette.textMuted, marginBottom: 12 }}>
-            A valid prescription is mandatory for Schedule H medicines.
-          </Text>
-          <TouchableOpacity 
-            style={[styles.addrBox, prescriptionUploaded ? styles.addrBoxSel : {}]} 
-            onPress={() => setPrescriptionUploaded(!prescriptionUploaded)}
-          >
-            <Ionicons name="document-attach" size={24} color={prescriptionUploaded ? Palette.secondary : Palette.textMuted} />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={[styles.payName, prescriptionUploaded ? {color: Palette.secondary} : {}]}>
-                {prescriptionUploaded ? 'Prescription Uploaded' : 'Upload Prescription'}
-              </Text>
-              <Text style={styles.paySub}>Tap to attach doctor's prescription</Text>
-            </View>
-            {prescriptionUploaded && <Ionicons name="checkmark-circle" size={22} color={Palette.secondary} />}
-          </TouchableOpacity>
         </View>
 
         {/* Payment Method */}

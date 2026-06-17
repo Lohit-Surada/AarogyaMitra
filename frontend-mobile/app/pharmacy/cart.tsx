@@ -189,7 +189,7 @@ export default function CartScreen() {
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            ListFooterComponent={() => (
+            ListFooterComponent={
               <View style={styles.footerDetails}>
                 {/* Coupon */}
                 <View style={styles.couponBox}>
@@ -257,7 +257,7 @@ export default function CartScreen() {
                   </View>
                 </View>
               </View>
-            )}
+            }
           />
 
           {/* Checkout Bar */}

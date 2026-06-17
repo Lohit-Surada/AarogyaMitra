@@ -12,10 +12,8 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
-import { realtimeDb } from '@/lib/firebase';
-import { ref, onValue, off } from 'firebase/database';
+import { subscribeToOrders } from '@/services/rtdbService';
 
 type ProductDetails = {
   id: number;
@@ -54,57 +52,19 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchOrders = useCallback(async () => {
-    if (!user) {
+  useEffect(() => {
+    if (!userEmail || userEmail === 'guest@aarogyamitra.com') {
       setLoading(false);
       return;
     }
-    try {
-      setLoading(true);
-      const res = await authenticatedFetch('/api/pharmacy/orders');
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(data);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
+
+    setLoading(true);
+    const unsubscribe = subscribeToOrders(userEmail, (data) => {
+      setOrders(data);
       setLoading(false);
-    }
-  }, [user]);
+    });
 
-  useEffect(() => {
-    if (!authLoading) {
-      fetchOrders();
-    }
-  }, [fetchOrders, authLoading]);
-
-  // Real-time listener for order status changes
-  useEffect(() => {
-    if (!userEmail || userEmail === 'guest@aarogyamitra.com') return;
-
-    const sanitizedEmail = userEmail.replace(/\./g, '_');
-    const ordersRef = ref(realtimeDb, `realtime/orders/${sanitizedEmail}`);
-
-    const handleData = (snapshot: any) => {
-      const val = snapshot.val();
-      if (val) {
-        setOrders(prevOrders => {
-          let hasChanges = false;
-          const newOrders = prevOrders.map(order => {
-            if (val[order.id] && val[order.id].status && val[order.id].status !== order.orderStatus) {
-              hasChanges = true;
-              return { ...order, orderStatus: val[order.id].status };
-            }
-            return order;
-          });
-          return hasChanges ? newOrders : prevOrders;
-        });
-      }
-    };
-
-    onValue(ordersRef, handleData);
-    return () => off(ordersRef, 'value', handleData);
+    return () => unsubscribe();
   }, [userEmail]);
 
   const formatDate = (isoString: string) => {
@@ -121,19 +81,6 @@ export default function OrdersScreen() {
 
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.orderId}>Order #{item.id}</Text>
-            <Text style={styles.orderDate}>{formatDate(item.createdAt)}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-            <Ionicons name={config.icon} size={14} color={config.text} style={{ marginRight: 4 }} />
-            <Text style={[styles.statusTxt, { color: config.text }]}>{item.orderStatus}</Text>
-          </View>
-        </View>
-
-        <View style={styles.divider} />
-
         <View style={styles.cardBody}>
           {firstItem && firstItem.product && (
             <View style={styles.itemPreview}>
@@ -159,6 +106,12 @@ export default function OrdersScreen() {
             <Text style={styles.totalLbl}>Total Amount</Text>
             <Text style={styles.totalVal}>₹{item.total ? item.total.toFixed(2) : '0.00'}</Text>
           </View>
+          <TouchableOpacity 
+            style={styles.detailBtn}
+            onPress={() => router.push(`/pharmacy/order/${item.id || (item as any).orderId}`)}
+          >
+            <Text style={styles.detailBtnTxt}>View Details</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -208,7 +161,7 @@ export default function OrdersScreen() {
       ) : (
         <FlatList
           data={orders}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item, index) => (item.id || (item as any).orderId || index).toString()}
           renderItem={renderOrderItem}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

@@ -139,6 +139,8 @@ export async function syncOrderToRTDB(email: string, order: any): Promise<void> 
   const orderId = String(order.id ?? `order_${Date.now()}`);
 
   const payload = {
+    ...order, // preserve any extra fields passed in
+    id: orderId, // ensures the 'id' field is present for FlatList keyExtractor
     orderId,
     userEmail: email,
     orderStatus: order.orderStatus ?? 'PLACED',
@@ -149,6 +151,7 @@ export async function syncOrderToRTDB(email: string, order: any): Promise<void> 
     createdAt: order.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     itemCount: (order.orderItems ?? []).length,
+    orderItems: order.orderItems ?? [], // save actual items for display
   };
 
   try {
