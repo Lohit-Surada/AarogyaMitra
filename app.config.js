@@ -49,7 +49,7 @@ export default {
         "root": "frontend-mobile/app"
       },
       "eas": {
-        "projectId": "b8b331c4-38ce-48be-ae57-d90b200fedea"
+        "projectId": "bebd912f-adba-4d5a-9a22-cea17356df3e"
       }
     },
     "plugins": [

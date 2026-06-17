@@ -1,0 +1,5 @@
+backend/
+ml_services/
+chatbot_service/
+*.apk
+*.aab
