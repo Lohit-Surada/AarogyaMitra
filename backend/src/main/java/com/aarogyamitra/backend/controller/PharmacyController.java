@@ -55,16 +55,20 @@ public class PharmacyController {
         return ResponseEntity.ok(pharmacyService.getRecommendations());
     }
 
+    private String getAuthenticatedEmail() {
+        return org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
     // --- CART ---
 
     @GetMapping("/cart")
-    public ResponseEntity<List<CartItem>> getCart(@RequestParam String email) {
-        return ResponseEntity.ok(pharmacyService.getCart(email));
+    public ResponseEntity<List<CartItem>> getCart() {
+        return ResponseEntity.ok(pharmacyService.getCart(getAuthenticatedEmail()));
     }
 
     @PostMapping("/cart/add")
     public ResponseEntity<CartItem> addToCart(@RequestBody Map<String, Object> payload) {
-        String email = (String) payload.get("email");
+        String email = getAuthenticatedEmail();
         Long productId = Long.valueOf(payload.get("productId").toString());
         int quantity = Integer.parseInt(payload.get("quantity").toString());
         return ResponseEntity.ok(pharmacyService.addToCart(email, productId, quantity));
@@ -72,51 +76,52 @@ public class PharmacyController {
 
     @PostMapping("/cart/update")
     public ResponseEntity<CartItem> updateCartQuantity(@RequestBody Map<String, Object> payload) {
-        String email = (String) payload.get("email");
+        String email = getAuthenticatedEmail();
         Long productId = Long.valueOf(payload.get("productId").toString());
         int quantity = Integer.parseInt(payload.get("quantity").toString());
         return ResponseEntity.ok(pharmacyService.updateCartQuantity(email, productId, quantity));
     }
 
     @DeleteMapping("/cart/remove")
-    public ResponseEntity<Void> removeFromCart(@RequestParam String email, @RequestParam Long productId) {
-        pharmacyService.removeFromCart(email, productId);
+    public ResponseEntity<Void> removeFromCart(@RequestParam Long productId) {
+        pharmacyService.removeFromCart(getAuthenticatedEmail(), productId);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/cart/clear")
-    public ResponseEntity<Void> clearCart(@RequestParam String email) {
-        pharmacyService.clearCart(email);
+    public ResponseEntity<Void> clearCart() {
+        pharmacyService.clearCart(getAuthenticatedEmail());
         return ResponseEntity.ok().build();
     }
 
     // --- ADDRESS ---
 
     @GetMapping("/addresses")
-    public ResponseEntity<List<SavedAddress>> getAddresses(@RequestParam String email) {
-        return ResponseEntity.ok(pharmacyService.getAddresses(email));
+    public ResponseEntity<List<SavedAddress>> getAddresses() {
+        return ResponseEntity.ok(pharmacyService.getAddresses(getAuthenticatedEmail()));
     }
 
     @PostMapping("/addresses/add")
-    public ResponseEntity<SavedAddress> addAddress(@RequestParam String email, @RequestBody SavedAddress address) {
-        return ResponseEntity.ok(pharmacyService.addAddress(email, address));
+    public ResponseEntity<SavedAddress> addAddress(@RequestBody SavedAddress address) {
+        return ResponseEntity.ok(pharmacyService.addAddress(getAuthenticatedEmail(), address));
     }
 
     @DeleteMapping("/addresses/delete/{id}")
-    public ResponseEntity<Void> deleteAddress(@RequestParam String email, @PathVariable Long id) {
-        pharmacyService.deleteAddress(email, id);
+    public ResponseEntity<Void> deleteAddress(@PathVariable Long id) {
+        pharmacyService.deleteAddress(getAuthenticatedEmail(), id);
         return ResponseEntity.ok().build();
     }
 
     // --- ORDERS ---
 
     @GetMapping("/orders")
-    public ResponseEntity<List<Order>> getOrders(@RequestParam String email) {
-        return ResponseEntity.ok(pharmacyService.getOrders(email));
+    public ResponseEntity<List<Order>> getOrders() {
+        return ResponseEntity.ok(pharmacyService.getOrders(getAuthenticatedEmail()));
     }
 
     @PostMapping("/orders/place-cod")
-    public ResponseEntity<Order> placeCodOrder(@RequestParam String email, @RequestBody Order orderRequest) {
+    public ResponseEntity<Order> placeCodOrder(@RequestBody Order orderRequest) {
+        String email = getAuthenticatedEmail();
         List<CartItem> cartItems = pharmacyService.getCart(email);
         if (cartItems.isEmpty()) {
             return ResponseEntity.badRequest().build();
@@ -126,10 +131,34 @@ public class PharmacyController {
         Order order = pharmacyService.placeOrder(email, orderRequest, cartItems);
         return ResponseEntity.ok(order);
     }
+    
+    @PostMapping("/orders/create-razorpay")
+    public ResponseEntity<Map<String, String>> createRazorpayOrder(@RequestBody Map<String, Object> payload) {
+        try {
+            Double amount = Double.parseDouble(payload.get("amount").toString());
+            String rzpOrderId = pharmacyService.createRazorpayOrder(amount);
+            return ResponseEntity.ok(Map.of("id", rzpOrderId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/orders/place-online")
+    public ResponseEntity<com.aarogyamitra.backend.model.Order> placeOnlineOrder(@RequestBody com.aarogyamitra.backend.model.Order orderRequest) {
+        String email = getAuthenticatedEmail();
+        List<CartItem> cartItems = pharmacyService.getCart(email);
+        if (cartItems.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        orderRequest.setPaymentMethod("RAZORPAY");
+        orderRequest.setPaymentStatus("PAID");
+        com.aarogyamitra.backend.model.Order order = pharmacyService.placeOrder(email, orderRequest, cartItems);
+        return ResponseEntity.ok(order);
+    }
 
     @PostMapping("/orders/cancel/{id}")
-    public ResponseEntity<Void> cancelOrder(@RequestParam String email, @PathVariable Long id) {
-        pharmacyService.cancelOrder(email, id);
+    public ResponseEntity<Void> cancelOrder(@PathVariable Long id) {
+        pharmacyService.cancelOrder(getAuthenticatedEmail(), id);
         return ResponseEntity.ok().build();
     }
 }

@@ -10,9 +10,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useAuth } from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -83,11 +86,70 @@ export default function HomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  const [weather, setWeather] = useState<{
+    temp: number;
+    description: string;
+    icon: string;
+    city: string;
+  } | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchWeather() {
+      try {
+        setWeatherLoading(true);
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Location permission denied for weather widget.');
+          setWeatherLoading(false);
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (!isMounted) return;
+
+        const { latitude, longitude } = location.coords;
+        const response = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=0d0bac635fa95fef3443454cda19fad6&units=metric`
+        );
+        const data = await response.json();
+
+        if (!isMounted) return;
+
+        if (data && data.main && data.weather && data.weather[0]) {
+          setWeather({
+            temp: data.main.temp,
+            description: data.weather[0].main,
+            icon: data.weather[0].icon,
+            city: data.name,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+      } finally {
+        if (isMounted) {
+          setWeatherLoading(false);
+        }
+      }
+    }
+
+    fetchWeather();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const userInitial = useMemo(() => {
@@ -184,9 +246,28 @@ export default function HomeScreen() {
               <Text style={styles.greetingName}>{firstName} 👋</Text>
               <Text style={styles.greetingSubtitle}>How are you feeling today?</Text>
             </View>
-            <View style={styles.greetingIcon}>
-              <Ionicons name="fitness" size={48} color="rgba(255,255,255,0.3)" />
-            </View>
+            
+            {weatherLoading ? (
+              <View style={styles.weatherContainer}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : weather ? (
+              <View style={styles.weatherContainer}>
+                <View style={styles.weatherRow}>
+                  <Image
+                    source={{ uri: `https://openweathermap.org/img/wn/${weather.icon}@2x.png` }}
+                    style={styles.weatherIconImage}
+                  />
+                  <Text style={styles.weatherTemp}>{Math.round(weather.temp)}°C</Text>
+                </View>
+                <Text style={styles.weatherDesc} numberOfLines={1}>{weather.description}</Text>
+                <Text style={styles.weatherCity} numberOfLines={1}>{weather.city}</Text>
+              </View>
+            ) : (
+              <View style={styles.greetingIcon}>
+                <Ionicons name="fitness" size={48} color="rgba(255,255,255,0.3)" />
+              </View>
+            )}
           </View>
 
           {/* ── Health Tip ── */}
@@ -336,6 +417,46 @@ const styles = StyleSheet.create({
   greetingName: { fontSize: 24, fontWeight: '800', color: '#fff', marginTop: 2 },
   greetingSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   greetingIcon: { marginLeft: 8 },
+  weatherContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: Spacing.sm,
+    minWidth: 80,
+  },
+  weatherRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weatherIconImage: {
+    width: 28,
+    height: 28,
+    marginRight: 2,
+  },
+  weatherTemp: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  weatherDesc: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    marginTop: 1,
+    textAlign: 'center',
+  },
+  weatherCity: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 1,
+    textAlign: 'center',
+    maxWidth: 75,
+  },
 
   // Health Tip
   tipCard: {

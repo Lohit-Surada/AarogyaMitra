@@ -16,7 +16,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { getBackendUrl } from '@/utils/api';
+import { addToCart } from '@/services/cartService';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { trackProductView, logEvent } from '@/services/rtdbService';
 
 type Product = {
   id: number;
@@ -73,6 +75,14 @@ export default function ProductDetails() {
       const data = await res.json();
       setProduct(data);
 
+      // Track product view in RTDB
+      trackProductView(data.id);
+      logEvent('product_view', userEmail !== 'guest@aarogyamitra.com' ? userEmail : undefined, {
+        productId: data.id,
+        productName: data.name,
+        category: data.category,
+      });
+
       const simRes = await fetch(
         getBackendUrl(`/api/pharmacy/products?category=${encodeURIComponent(data.category)}&size=5`)
       );
@@ -113,13 +123,15 @@ export default function ProductDetails() {
 
     try {
       setAddingToCart(true);
-      const response = await fetch(getBackendUrl('/api/pharmacy/cart/add'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, productId: product.id, quantity }),
+      await addToCart(product.id, quantity, {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        inStock: product.inStock,
+        stock: product.stock,
       });
-
-      if (!response.ok) throw new Error('Failed to add');
 
       if (checkoutImmediately) {
         router.push('/pharmacy/cart');

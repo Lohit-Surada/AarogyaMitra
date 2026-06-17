@@ -12,28 +12,34 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl } from '@/utils/api';
+import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { realtimeDb } from '@/lib/firebase';
+import { ref, onValue, off } from 'firebase/database';
+
+type ProductDetails = {
+  id: number;
+  name: string;
+  imageUrl: string;
+};
 
 type OrderItem = {
   id: number;
-  productName: string;
+  product: ProductDetails;
   quantity: number;
   price: number;
-  productImage: string;
 };
 
 type Order = {
   id: number;
-  orderNumber: string;
-  orderDate: string;
-  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  createdAt: string;
+  orderStatus: 'PLACED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   total: number;
-  items: OrderItem[];
+  orderItems: OrderItem[];
 };
 
 const StatusColors = {
-  PENDING: { bg: '#FEF3C7', text: '#D97706', icon: 'time-outline' as const },
+  PLACED: { bg: '#FEF3C7', text: '#D97706', icon: 'time-outline' as const },
   PROCESSING: { bg: '#DBEAFE', text: '#2563EB', icon: 'cog-outline' as const },
   SHIPPED: { bg: '#E0E7FF', text: '#4F46E5', icon: 'airplane-outline' as const },
   DELIVERED: { bg: '#D1FAE5', text: '#059669', icon: 'checkmark-circle-outline' as const },
@@ -42,16 +48,20 @@ const StatusColors = {
 
 export default function OrdersScreen() {
   const router = useRouter();
-  const { user } = useAuth();
-  const userEmail = user?.email || 'guest@aarogyamitra.com';
+  const { user, loading: authLoading } = useAuth();
+  const userEmail = user?.email || '';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrders = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const res = await fetch(getBackendUrl(`/api/pharmacy/orders?email=${userEmail}`));
+      const res = await authenticatedFetch('/api/pharmacy/orders');
       if (res.ok) {
         const data = await res.json();
         setOrders(data);
@@ -61,45 +71,77 @@ export default function OrdersScreen() {
     } finally {
       setLoading(false);
     }
-  }, [userEmail]);
+  }, [user]);
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    if (!authLoading) {
+      fetchOrders();
+    }
+  }, [fetchOrders, authLoading]);
+
+  // Real-time listener for order status changes
+  useEffect(() => {
+    if (!userEmail || userEmail === 'guest@aarogyamitra.com') return;
+
+    const sanitizedEmail = userEmail.replace(/\./g, '_');
+    const ordersRef = ref(realtimeDb, `realtime/orders/${sanitizedEmail}`);
+
+    const handleData = (snapshot: any) => {
+      const val = snapshot.val();
+      if (val) {
+        setOrders(prevOrders => {
+          let hasChanges = false;
+          const newOrders = prevOrders.map(order => {
+            if (val[order.id] && val[order.id].status && val[order.id].status !== order.orderStatus) {
+              hasChanges = true;
+              return { ...order, orderStatus: val[order.id].status };
+            }
+            return order;
+          });
+          return hasChanges ? newOrders : prevOrders;
+        });
+      }
+    };
+
+    onValue(ordersRef, handleData);
+    return () => off(ordersRef, 'value', handleData);
+  }, [userEmail]);
 
   const formatDate = (isoString: string) => {
+    if (!isoString) return '';
     const d = new Date(isoString);
     return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const renderOrderItem = ({ item }: { item: Order }) => {
-    const config = StatusColors[item.status] || StatusColors.PENDING;
-    const firstItem = item.items[0];
-    const moreItemsCount = item.items.length - 1;
+    const config = StatusColors[item.orderStatus] || StatusColors.PLACED;
+    const itemsList = item.orderItems || [];
+    const firstItem = itemsList[0];
+    const moreItemsCount = itemsList.length - 1;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View>
-            <Text style={styles.orderId}>Order #{item.orderNumber}</Text>
-            <Text style={styles.orderDate}>{formatDate(item.orderDate)}</Text>
+            <Text style={styles.orderId}>Order #{item.id}</Text>
+            <Text style={styles.orderDate}>{formatDate(item.createdAt)}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
             <Ionicons name={config.icon} size={14} color={config.text} style={{ marginRight: 4 }} />
-            <Text style={[styles.statusTxt, { color: config.text }]}>{item.status}</Text>
+            <Text style={[styles.statusTxt, { color: config.text }]}>{item.orderStatus}</Text>
           </View>
         </View>
 
         <View style={styles.divider} />
 
         <View style={styles.cardBody}>
-          {firstItem && (
+          {firstItem && firstItem.product && (
             <View style={styles.itemPreview}>
               <View style={styles.imgWrap}>
-                <Image source={{ uri: firstItem.productImage }} style={styles.previewImg} />
+                <Image source={{ uri: firstItem.product.imageUrl || 'https://via.placeholder.com/50' }} style={styles.previewImg} />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.previewName} numberOfLines={2}>{firstItem.productName}</Text>
+                <Text style={styles.previewName} numberOfLines={2}>{firstItem.product.name || 'Product'}</Text>
                 <Text style={styles.previewQty}>Qty: {firstItem.quantity}</Text>
               </View>
             </View>
@@ -115,11 +157,8 @@ export default function OrdersScreen() {
         <View style={styles.cardFooter}>
           <View>
             <Text style={styles.totalLbl}>Total Amount</Text>
-            <Text style={styles.totalVal}>₹{item.total.toFixed(2)}</Text>
+            <Text style={styles.totalVal}>₹{item.total ? item.total.toFixed(2) : '0.00'}</Text>
           </View>
-          <TouchableOpacity style={styles.detailBtn}>
-            <Text style={styles.detailBtnTxt}>View Details</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
@@ -135,7 +174,25 @@ export default function OrdersScreen() {
         <View style={{ width: 32 }} />
       </View>
 
-      {loading ? (
+      {!user && !authLoading ? (
+        <View style={styles.centered}>
+          <Ionicons name="lock-closed-outline" size={64} color="#CBD5E1" />
+          <Text style={styles.emptyTitle}>Sign in to view orders</Text>
+          <Text style={styles.emptySub}>Your order history is saved to your account.</Text>
+          <TouchableOpacity
+            style={styles.shopBtn}
+            onPress={() => router.push({ pathname: '/login', params: { returnUrl: '/pharmacy/orders' } })}
+          >
+            <Text style={styles.shopBtnText}>Sign In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.shopBtn, { marginTop: 10, backgroundColor: '#64748B' }]}
+            onPress={() => router.push('/pharmacy')}
+          >
+            <Text style={styles.shopBtnText}>Continue Shopping</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Palette.secondary} />
         </View>

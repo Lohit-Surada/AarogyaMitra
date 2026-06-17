@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl } from '@/utils/api';
+import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 
 type Address = {
   id: number;
@@ -30,11 +30,12 @@ type Address = {
 
 type Order = {
   id: number;
-  razorpayOrderId?: string;
   paymentMethod: string;
   paymentStatus: string;
+  orderStatus: string;
   total: number;
   createdAt: string;
+  shippingAddress?: string;
 };
 
 export default function PharmacyProfile() {
@@ -62,8 +63,8 @@ export default function PharmacyProfile() {
     try {
       setLoading(true);
       const [addrRes, orderRes] = await Promise.all([
-        fetch(getBackendUrl(`/api/pharmacy/addresses?email=${userEmail}`)),
-        fetch(getBackendUrl(`/api/pharmacy/orders?email=${userEmail}`)),
+        authenticatedFetch('/api/pharmacy/addresses'),
+        authenticatedFetch('/api/pharmacy/orders'),
       ]);
 
       if (addrRes.ok) {
@@ -77,7 +78,7 @@ export default function PharmacyProfile() {
     } finally {
       setLoading(false);
     }
-  }, [userEmail]);
+  }, []);
 
   useEffect(() => {
     fetchProfileData();
@@ -90,7 +91,7 @@ export default function PharmacyProfile() {
     }
 
     try {
-      const response = await fetch(getBackendUrl(`/api/pharmacy/addresses/add?email=${userEmail}`), {
+      const response = await authenticatedFetch('/api/pharmacy/addresses/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,7 +101,7 @@ export default function PharmacyProfile() {
           city,
           state: stateVal,
           zipCode: zip,
-          latitude: 12.9716, // Mock Default Bangalore Coordinates
+          latitude: 12.9716,
           longitude: 77.5946,
         }),
       });
@@ -130,8 +131,8 @@ export default function PharmacyProfile() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const response = await fetch(
-              getBackendUrl(`/api/pharmacy/addresses/delete/${id}?email=${userEmail}`),
+            const response = await authenticatedFetch(
+              `/api/pharmacy/addresses/delete/${id}`,
               { method: 'DELETE' }
             );
             if (response.ok) {
@@ -222,24 +223,23 @@ export default function PharmacyProfile() {
           )}
         </View>
 
-        {/* Payment History Log */}
+        {/* Order History */}
         <View style={styles.sectionCard}>
-          <ThemedText style={styles.sectionTitle}>Payment & Transactions History</ThemedText>
+          <ThemedText style={styles.sectionTitle}>Order History</ThemedText>
           {loading ? (
             <ActivityIndicator size="small" color="#10b981" />
           ) : orders.length === 0 ? (
-            <ThemedText style={styles.emptyText}>No transaction records found.</ThemedText>
+            <ThemedText style={styles.emptyText}>No orders placed yet.</ThemedText>
           ) : (
             orders.map(order => (
               <View key={order.id} style={styles.transactionItem}>
-                <View>
-                  <ThemedText style={styles.txId}>TXN ID: #{order.id}</ThemedText>
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.txId}>Order #{order.id}</ThemedText>
                   <ThemedText style={styles.txDate}>
-                    {new Date(order.createdAt).toLocaleDateString()} • {order.paymentMethod}
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {'  •  '}{order.paymentMethod === 'COD' ? 'Cash on Delivery' : order.paymentMethod}
                   </ThemedText>
-                  {order.razorpayOrderId && (
-                    <ThemedText style={styles.razorpayRef}>Ref: {order.razorpayOrderId}</ThemedText>
-                  )}
+                  <ThemedText style={styles.txStatus2}>{order.orderStatus ?? 'PLACED'}</ThemedText>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <ThemedText style={styles.txPrice}>₹{order.total.toFixed(2)}</ThemedText>
@@ -268,6 +268,26 @@ export default function PharmacyProfile() {
               />
             </Pressable>
           </View>
+        </View>
+
+        {/* Legal & Policies */}
+        <View style={styles.sectionCard}>
+          <ThemedText style={styles.sectionTitle}>Legal & Policies</ThemedText>
+          
+          <Pressable style={styles.legalRow} onPress={() => router.push({ pathname: '/legal', params: { type: 'terms' } })}>
+            <ThemedText style={styles.legalText}>Terms & Conditions</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+          </Pressable>
+          
+          <Pressable style={styles.legalRow} onPress={() => router.push({ pathname: '/legal', params: { type: 'privacy' } })}>
+            <ThemedText style={styles.legalText}>Privacy Policy</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+          </Pressable>
+          
+          <Pressable style={[styles.legalRow, { borderBottomWidth: 0 }]} onPress={() => router.push({ pathname: '/legal', params: { type: 'refund' } })}>
+            <ThemedText style={styles.legalText}>Cancellation & Refund Policy</ThemedText>
+            <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+          </Pressable>
         </View>
       </ScrollView>
     </ThemedView>
@@ -431,9 +451,10 @@ const styles = StyleSheet.create({
     color: '#64748b',
     marginTop: 2,
   },
-  razorpayRef: {
-    fontSize: 9,
-    color: '#94a3b8',
+  txStatus2: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
     marginTop: 2,
   },
   txPrice: {
@@ -459,5 +480,18 @@ const styles = StyleSheet.create({
   prefSub: {
     fontSize: 11,
     color: '#64748b',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  legalText: {
+    fontSize: 14,
+    color: '#334155',
+    fontWeight: '500',
   },
 });

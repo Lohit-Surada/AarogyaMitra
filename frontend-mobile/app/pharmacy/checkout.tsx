@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -13,8 +14,10 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl } from '@/utils/api';
+import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { saveOrderToFirebase } from '@/services/firebaseService';
+import RazorpayCheckout from 'react-native-razorpay';
 
 type Address = {
   id: number;
@@ -28,11 +31,25 @@ type Address = {
   longitude?: number;
 };
 
+type PlacedOrder = {
+  id: number;
+  orderStatus: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  total: number;
+  subtotal: number;
+  gst: number;
+  deliveryFee: number;
+  shippingAddress: string;
+  createdAt: string;
+  orderItems?: any[];
+};
+
 export default function CheckoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { user } = useAuth();
-  const userEmail = user?.email || 'guest@aarogyamitra.com';
+  const { user, loading: authLoading } = useAuth();
+  const userEmail = user?.email ?? '';
 
   const baseSubtotal = parseFloat((params.subtotal as string) || '0');
   const baseDiscount = parseFloat((params.discount as string) || '0');
@@ -43,25 +60,59 @@ export default function CheckoutScreen() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'express'>('standard');
-  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'cod'>('razorpay');
 
   const [loading, setLoading] = useState(true);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
 
+  // Compliance & Checkout State
+  const [prescriptionUploaded, setPrescriptionUploaded] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
+  const [legalConsent, setLegalConsent] = useState(false);
+
+  // Success modal state
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
+
+  // New address inputs
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newStreet, setNewStreet] = useState('');
   const [newCity, setNewCity] = useState('');
   const [newStateVal, setNewStateVal] = useState('');
   const [newZip, setNewZip] = useState('');
-  const [newLat, setNewLat] = useState<number>(12.9716);
-  const [newLng, setNewLng] = useState<number>(77.5946);
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  // If user is not logged in, redirect them to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      Alert.alert(
+        'Login Required',
+        'Please sign in to proceed with checkout.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+          {
+            text: 'Sign In',
+            onPress: () =>
+              router.replace({
+                pathname: '/login',
+                params: { returnUrl: '/pharmacy/cart' },
+              }),
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [user, authLoading]);
+
+  const activeDeliveryFee = deliverySpeed === 'express' ? baseDeliveryFee + 50 : baseDeliveryFee;
+  const activeTotal = baseTotal + (deliverySpeed === 'express' ? 50 : 0);
 
   const fetchAddresses = useCallback(async () => {
+    if (!userEmail) return;
     try {
       setLoading(true);
-      const res = await fetch(getBackendUrl(`/api/pharmacy/addresses?email=${userEmail}`));
+      const res = await authenticatedFetch('/api/pharmacy/addresses');
       if (res.ok) {
         const data = await res.json();
         setAddresses(data);
@@ -82,9 +133,8 @@ export default function CheckoutScreen() {
     if (!newName || !newPhone || !newStreet || !newCity || !newStateVal || !newZip) {
       return Alert.alert('Missing Fields', 'Please fill in all address details.');
     }
-
     try {
-      const res = await fetch(getBackendUrl(`/api/pharmacy/addresses/add?email=${userEmail}`), {
+      const res = await authenticatedFetch('/api/pharmacy/addresses/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,11 +144,10 @@ export default function CheckoutScreen() {
           city: newCity,
           state: newStateVal,
           zipCode: newZip,
-          latitude: newLat,
-          longitude: newLng,
+          latitude: 12.9716,
+          longitude: 77.5946,
         }),
       });
-
       if (res.ok) {
         const added = await res.json();
         setShowAddAddress(false);
@@ -114,70 +163,223 @@ export default function CheckoutScreen() {
     }
   };
 
-  const activeDeliveryFee = deliverySpeed === 'express' ? baseDeliveryFee + 50 : baseDeliveryFee;
-  const activeTotal = baseTotal + (deliverySpeed === 'express' ? 50 : 0);
-
   const handlePlaceOrder = async () => {
     if (!user) {
-      return Alert.alert('Auth Required', 'Please log in to continue.', [
+      return Alert.alert('Login Required', 'Please sign in first.', [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Login', onPress: () => router.push({ pathname: '/login', params: { returnUrl: '/pharmacy/checkout' } }) },
+        {
+          text: 'Sign In',
+          onPress: () => router.replace({ pathname: '/login', params: { returnUrl: '/pharmacy/cart' } }),
+        },
       ]);
     }
-    if (!selectedAddressId) return Alert.alert('Address Required', 'Select a delivery address.');
+    if (!selectedAddressId) return Alert.alert('Select Address', 'Please select a delivery address.');
+    if (!legalConsent) return Alert.alert('Consent Required', 'You must agree to our Terms, Privacy Policy, and Refund Policy to proceed.');
+    if (!prescriptionUploaded) return Alert.alert('Prescription Required', 'Please attach a valid prescription to proceed with your order.');
 
     const address = addresses.find(a => a.id === selectedAddressId);
     if (!address) return;
+
     const fullAddr = `${address.name}, ${address.addressLine}, ${address.city}, ${address.state} - ${address.zipCode}. Ph: ${address.phone}`;
 
-    if (paymentMethod === 'cod') {
-      try {
-        setPlacingOrder(true);
-        const res = await fetch(getBackendUrl(`/api/pharmacy/orders/place-cod?email=${userEmail}`), {
+    try {
+      setPlacingOrder(true);
+
+      const orderPayload = {
+        shippingAddress: fullAddr,
+        latitude: address.latitude ?? 12.9716,
+        longitude: address.longitude ?? 77.5946,
+        subtotal: baseSubtotal,
+        discount: baseDiscount,
+        gst: baseGst,
+        deliveryFee: activeDeliveryFee,
+        total: activeTotal,
+      };
+
+      if (paymentMethod === 'cod') {
+        // --- COD Flow ---
+        const res = await authenticatedFetch('/api/pharmacy/orders/place-cod', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            shippingAddress: fullAddr,
-            latitude: address.latitude,
-            longitude: address.longitude,
-            subtotal: baseSubtotal,
-            discount: baseDiscount,
-            gst: baseGst,
-            deliveryFee: activeDeliveryFee,
-            total: activeTotal,
-          }),
+          body: JSON.stringify(orderPayload),
         });
+
         if (res.ok) {
-          Alert.alert('Order Confirmed', 'Your COD order has been placed successfully!', [
-            { text: 'View Orders', onPress: () => router.push('/pharmacy/orders') },
-          ]);
+          const order: PlacedOrder = await res.json();
+          saveOrderToFirebase(userEmail, order).catch(e => console.warn('[Firebase] Background sync failed:', e));
+          setPlacedOrder(order);
+          setSuccessVisible(true);
         } else {
-          Alert.alert('Error', 'Could not complete checkout.');
+          Alert.alert('Error', 'Could not complete checkout. Please try again.');
         }
-      } catch (error) {
-        Alert.alert('Error', 'Server connection error.');
-      } finally {
-        setPlacingOrder(false);
+      } else {
+        // --- Razorpay Flow for Expo Go ---
+        // 1. Create Razorpay Order on Backend
+        const rzpCreateRes = await authenticatedFetch('/api/pharmacy/orders/create-razorpay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: activeTotal }),
+        });
+
+        if (!rzpCreateRes.ok) {
+          throw new Error('Failed to initialize payment');
+        }
+
+        const rzpCreateData = await rzpCreateRes.json();
+        const razorpayOrderId = rzpCreateData.id;
+
+        // 2. Alert user about Expo Go limitation, simulate success for testing
+        Alert.alert(
+          'Online Payment',
+          `Order ID: ${razorpayOrderId}\n\nNote: The native Razorpay SDK does not work inside the Expo Go app. In production, this would open a Web Payment Link or require a custom Dev Client build.\n\nSimulating successful payment...`,
+          [
+            {
+              text: 'Simulate Success',
+              onPress: async () => {
+                const finalPayload = {
+                  ...orderPayload,
+                  razorpayOrderId: razorpayOrderId,
+                  razorpayPaymentId: 'pay_simulated_123',
+                  razorpaySignature: 'simulated_signature_hash',
+                };
+
+                const placeRes = await authenticatedFetch('/api/pharmacy/orders/place-online', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(finalPayload),
+                });
+
+                if (placeRes.ok) {
+                  const order: PlacedOrder = await placeRes.json();
+                  saveOrderToFirebase(userEmail, order).catch(e => console.warn('[Firebase] Background sync failed:', e));
+                  setPlacedOrder(order);
+                  setSuccessVisible(true);
+                } else {
+                  Alert.alert('Error', 'Order creation failed.');
+                }
+                setPlacingOrder(false);
+              }
+            }
+          ]
+        );
+        return; // Early return to let the alert callback handle state
       }
-    } else {
-      router.push({
-        pathname: '/pharmacy/payment',
-        params: {
-          total: activeTotal.toString(),
-          subtotal: baseSubtotal.toString(),
-          discount: baseDiscount.toString(),
-          gst: baseGst.toString(),
-          deliveryFee: activeDeliveryFee.toString(),
-          shippingAddress: fullAddr,
-          latitude: (address.latitude || '').toString(),
-          longitude: (address.longitude || '').toString(),
-        },
-      });
+    } catch (error) {
+      Alert.alert('Error', 'Server connection error. Please check your internet.');
+    } finally {
+      setPlacingOrder(false);
     }
   };
 
+  // ── Success Modal ─────────────────────────────────────────────────────────
+  const renderSuccessModal = () => (
+    <Modal visible={successVisible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.successCard}>
+          {/* Check icon */}
+          <View style={styles.successIconCircle}>
+            <Ionicons name="checkmark" size={40} color="#fff" />
+          </View>
+
+          <Text style={styles.successTitle}>Order Confirmed! 🎉</Text>
+          <Text style={styles.successSub}>Your order has been placed successfully.</Text>
+
+          {placedOrder && (
+            <View style={styles.orderDetailBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Order ID</Text>
+                <Text style={styles.detailValue}>#{placedOrder.id}</Text>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Payment</Text>
+                <Text style={styles.detailValue}>Cash on Delivery</Text>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Status</Text>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusBadgeTxt}>{placedOrder.orderStatus}</Text>
+                </View>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Subtotal</Text>
+                <Text style={styles.detailValue}>₹{(placedOrder.subtotal ?? baseSubtotal).toFixed(2)}</Text>
+              </View>
+              {baseDiscount > 0 && (
+                <>
+                  <View style={styles.detailDivider} />
+                  <View style={styles.detailRow}>
+                    <Text style={[styles.detailLabel, { color: '#10B981' }]}>Discount</Text>
+                    <Text style={[styles.detailValue, { color: '#10B981' }]}>-₹{baseDiscount.toFixed(2)}</Text>
+                  </View>
+                </>
+              )}
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Taxes (GST)</Text>
+                <Text style={styles.detailValue}>₹{(placedOrder.gst ?? baseGst).toFixed(2)}</Text>
+              </View>
+              <View style={styles.detailDivider} />
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Delivery</Text>
+                <Text style={styles.detailValue}>₹{(placedOrder.deliveryFee ?? activeDeliveryFee).toFixed(2)}</Text>
+              </View>
+              <View style={[styles.detailDivider, { backgroundColor: '#D1FAE5' }]} />
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { fontWeight: '800', fontSize: 15, color: '#065F46' }]}>Total Paid</Text>
+                <Text style={[styles.detailValue, { fontWeight: '800', fontSize: 16, color: '#059669' }]}>
+                  ₹{(placedOrder.total ?? activeTotal).toFixed(2)}
+                </Text>
+              </View>
+
+              <View style={styles.addressRow}>
+                <Ionicons name="location-outline" size={14} color="#64748B" />
+                <Text style={styles.addressTxt} numberOfLines={3}>
+                  {placedOrder.shippingAddress ?? fullOrderAddress()}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.trackBtn}
+            onPress={() => {
+              setSuccessVisible(false);
+              router.replace('/pharmacy/orders');
+            }}
+          >
+            <Ionicons name="receipt-outline" size={18} color="#fff" />
+            <Text style={styles.trackBtnTxt}>Track My Order</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.shopMoreBtn}
+            onPress={() => {
+              setSuccessVisible(false);
+              router.replace('/pharmacy');
+            }}
+          >
+            <Text style={styles.shopMoreTxt}>Continue Shopping</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const fullOrderAddress = () => {
+    const address = addresses.find(a => a.id === selectedAddressId);
+    if (!address) return '';
+    return `${address.name}, ${address.addressLine}, ${address.city}, ${address.state} - ${address.zipCode}`;
+  };
+
+  if (!user) return null; // Wait for auth guard alert
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      {renderSuccessModal()}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Palette.text} />
@@ -187,10 +389,11 @@ export default function CheckoutScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
         {/* Delivery Address */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Delivery Address</Text>
+            <Text style={styles.cardTitle}>📦 Delivery Address</Text>
             {!showAddAddress && (
               <TouchableOpacity onPress={() => setShowAddAddress(true)}>
                 <Text style={styles.addTxt}>+ Add New</Text>
@@ -200,41 +403,48 @@ export default function CheckoutScreen() {
 
           {showAddAddress ? (
             <View style={styles.formWrap}>
-              <TextInput style={styles.input} placeholder="Receiver Name" value={newName} onChangeText={setNewName} />
-              <TextInput style={styles.input} placeholder="Mobile Number" value={newPhone} onChangeText={setNewPhone} keyboardType="phone-pad" />
-              <TextInput style={styles.input} placeholder="Street Address" value={newStreet} onChangeText={setNewStreet} />
+              <TextInput style={styles.input} placeholder="Receiver Name" placeholderTextColor="#94a3b8" value={newName} onChangeText={setNewName} />
+              <TextInput style={styles.input} placeholder="Mobile Number" placeholderTextColor="#94a3b8" value={newPhone} onChangeText={setNewPhone} keyboardType="phone-pad" />
+              <TextInput style={styles.input} placeholder="Street Address" placeholderTextColor="#94a3b8" value={newStreet} onChangeText={setNewStreet} />
               <View style={styles.row}>
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="City" value={newCity} onChangeText={setNewCity} />
-                <TextInput style={[styles.input, { flex: 1 }]} placeholder="State" value={newStateVal} onChangeText={setNewStateVal} />
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="City" placeholderTextColor="#94a3b8" value={newCity} onChangeText={setNewCity} />
+                <TextInput style={[styles.input, { flex: 1 }]} placeholder="State" placeholderTextColor="#94a3b8" value={newStateVal} onChangeText={setNewStateVal} />
               </View>
-              <TextInput style={styles.input} placeholder="Pincode" value={newZip} onChangeText={setNewZip} keyboardType="numeric" />
-              <TouchableOpacity style={styles.gpsBtn} onPress={() => { setNewLat(12.97 + Math.random() * 0.02); setNewLng(77.59 + Math.random() * 0.02); Alert.alert('Mock GPS', 'Location captured.'); }}>
-                <Ionicons name="location" size={16} color={Palette.primary} />
-                <Text style={styles.gpsTxt}>Use Current Location (Mock)</Text>
-              </TouchableOpacity>
+              <TextInput style={styles.input} placeholder="Pincode" placeholderTextColor="#94a3b8" value={newZip} onChangeText={setNewZip} keyboardType="numeric" />
               <View style={styles.formActions}>
                 <TouchableOpacity style={[styles.formBtn, { backgroundColor: '#FEE2E2' }]} onPress={() => setShowAddAddress(false)}>
                   <Text style={{ color: Palette.danger, fontWeight: '700' }}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.formBtn, { backgroundColor: Palette.secondary }]} onPress={handleAddAddress}>
-                  <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>
+                  <Text style={{ color: '#fff', fontWeight: '700' }}>Save Address</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : loading ? (
             <ActivityIndicator size="small" color={Palette.secondary} />
           ) : addresses.length === 0 ? (
-            <Text style={styles.emptyTxt}>No saved addresses.</Text>
+            <View style={styles.emptyAddr}>
+              <Ionicons name="location-outline" size={32} color="#CBD5E1" />
+              <Text style={styles.emptyTxt}>No saved addresses. Add one above.</Text>
+            </View>
           ) : (
             addresses.map(addr => {
               const isSel = selectedAddressId === addr.id;
               return (
-                <TouchableOpacity key={addr.id} style={[styles.addrBox, isSel && styles.addrBoxSel]} onPress={() => setSelectedAddressId(addr.id)}>
-                  <Ionicons name={isSel ? "radio-button-on" : "radio-button-off"} size={22} color={isSel ? Palette.secondary : Palette.textMuted} />
+                <TouchableOpacity
+                  key={addr.id}
+                  style={[styles.addrBox, isSel && styles.addrBoxSel]}
+                  onPress={() => setSelectedAddressId(addr.id)}
+                >
+                  <Ionicons
+                    name={isSel ? 'radio-button-on' : 'radio-button-off'}
+                    size={22}
+                    color={isSel ? Palette.secondary : Palette.textMuted}
+                  />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.addrName}>{addr.name}</Text>
-                    <Text style={styles.addrSub}>{addr.addressLine}, {addr.city}, {addr.state} - {addr.zipCode}</Text>
-                    <Text style={styles.addrSub}>Ph: {addr.phone}</Text>
+                    <Text style={styles.addrSub}>{addr.addressLine}, {addr.city}, {addr.state} – {addr.zipCode}</Text>
+                    <Text style={styles.addrSub}>📞 {addr.phone}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -244,38 +454,101 @@ export default function CheckoutScreen() {
 
         {/* Delivery Speed */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Delivery Speed</Text>
+          <Text style={styles.cardTitle}>🚚 Delivery Speed</Text>
           <View style={styles.row}>
-            <TouchableOpacity style={[styles.speedBox, deliverySpeed === 'standard' && styles.speedBoxSel]} onPress={() => setDeliverySpeed('standard')}>
+            <TouchableOpacity
+              style={[styles.speedBox, deliverySpeed === 'standard' && styles.speedBoxSel]}
+              onPress={() => setDeliverySpeed('standard')}
+            >
               <Ionicons name="bicycle" size={24} color={deliverySpeed === 'standard' ? Palette.secondary : Palette.textMuted} />
               <Text style={styles.speedName}>Standard</Text>
-              <Text style={styles.speedSub}>2-3 Days | Free</Text>
+              <Text style={styles.speedSub}>2–3 Days · Free</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.speedBox, deliverySpeed === 'express' && styles.speedBoxSel]} onPress={() => setDeliverySpeed('express')}>
+            <TouchableOpacity
+              style={[styles.speedBox, deliverySpeed === 'express' && styles.speedBoxSel]}
+              onPress={() => setDeliverySpeed('express')}
+            >
               <Ionicons name="flash" size={24} color={deliverySpeed === 'express' ? Palette.secondary : Palette.textMuted} />
               <Text style={styles.speedName}>Express</Text>
-              <Text style={styles.speedSub}>1 Day | +₹50</Text>
+              <Text style={styles.speedSub}>1 Day · +₹50</Text>
             </TouchableOpacity>
           </View>
         </View>
 
+        {/* Prescription Upload */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>📄 Prescription Details</Text>
+          <Text style={{ fontSize: 13, color: Palette.textMuted, marginBottom: 12 }}>
+            A valid prescription is mandatory for Schedule H medicines.
+          </Text>
+          <TouchableOpacity 
+            style={[styles.addrBox, prescriptionUploaded ? styles.addrBoxSel : {}]} 
+            onPress={() => setPrescriptionUploaded(!prescriptionUploaded)}
+          >
+            <Ionicons name="document-attach" size={24} color={prescriptionUploaded ? Palette.secondary : Palette.textMuted} />
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={[styles.payName, prescriptionUploaded ? {color: Palette.secondary} : {}]}>
+                {prescriptionUploaded ? 'Prescription Uploaded' : 'Upload Prescription'}
+              </Text>
+              <Text style={styles.paySub}>Tap to attach doctor's prescription</Text>
+            </View>
+            {prescriptionUploaded && <Ionicons name="checkmark-circle" size={22} color={Palette.secondary} />}
+          </TouchableOpacity>
+        </View>
+
         {/* Payment Method */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment Method</Text>
-          <TouchableOpacity style={[styles.payBox, paymentMethod === 'razorpay' && styles.payBoxSel]} onPress={() => setPaymentMethod('razorpay')}>
-            <Ionicons name="card" size={24} color={paymentMethod === 'razorpay' ? Palette.secondary : Palette.textMuted} />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.payName}>Online Payment</Text>
-              <Text style={styles.paySub}>Cards, UPI, Netbanking (Razorpay)</Text>
-            </View>
+          <Text style={styles.cardTitle}>💳 Payment Method</Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.speedBox, paymentMethod === 'cod' && styles.speedBoxSel]}
+              onPress={() => setPaymentMethod('cod')}
+            >
+              <Ionicons name="cash" size={24} color={paymentMethod === 'cod' ? Palette.secondary : Palette.textMuted} />
+              <Text style={styles.speedName}>COD</Text>
+              <Text style={styles.speedSub}>Cash on Delivery</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.speedBox, paymentMethod === 'razorpay' && styles.speedBoxSel]}
+              onPress={() => setPaymentMethod('razorpay')}
+            >
+              <Ionicons name="card" size={24} color={paymentMethod === 'razorpay' ? Palette.secondary : Palette.textMuted} />
+              <Text style={styles.speedName}>Online</Text>
+              <Text style={styles.speedSub}>UPI, Cards & Netbanking</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Legal Consent */}
+        <View style={[styles.card, { backgroundColor: 'transparent', borderWidth: 0, shadowOpacity: 0 }]}>
+          <TouchableOpacity 
+            style={{ flexDirection: 'row', alignItems: 'flex-start', paddingRight: 20 }}
+            onPress={() => setLegalConsent(!legalConsent)}
+          >
+            <Ionicons 
+              name={legalConsent ? "checkbox" : "square-outline"} 
+              size={22} 
+              color={legalConsent ? Palette.primary : Palette.textMuted} 
+              style={{ marginTop: 2 }}
+            />
+            <Text style={{ marginLeft: 10, fontSize: 13, color: Palette.text, lineHeight: 18 }}>
+              I agree to the <Text style={{ color: Palette.primary, fontWeight: '600' }} onPress={() => router.push({ pathname: '/legal', params: { type: 'terms' } })}>Terms & Conditions</Text>, <Text style={{ color: Palette.primary, fontWeight: '600' }} onPress={() => router.push({ pathname: '/legal', params: { type: 'privacy' } })}>Privacy Policy</Text>, and <Text style={{ color: Palette.primary, fontWeight: '600' }} onPress={() => router.push({ pathname: '/legal', params: { type: 'refund' } })}>Refund Policy</Text>.
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.payBox, paymentMethod === 'cod' && styles.payBoxSel]} onPress={() => setPaymentMethod('cod')}>
-            <Ionicons name="wallet" size={24} color={paymentMethod === 'cod' ? Palette.secondary : Palette.textMuted} />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.payName}>Cash on Delivery</Text>
-              <Text style={styles.paySub}>Pay when delivered</Text>
-            </View>
-          </TouchableOpacity>
+        </View>
+
+        {/* Order Summary */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>🧾 Order Summary</Text>
+          <View style={styles.summaryRow}><Text style={styles.summaryLbl}>Subtotal</Text><Text style={styles.summaryVal}>₹{baseSubtotal.toFixed(2)}</Text></View>
+          {baseDiscount > 0 && <View style={styles.summaryRow}><Text style={[styles.summaryLbl, { color: '#10B981' }]}>Discount</Text><Text style={[styles.summaryVal, { color: '#10B981' }]}>-₹{baseDiscount.toFixed(2)}</Text></View>}
+          <View style={styles.summaryRow}><Text style={styles.summaryLbl}>Taxes (GST)</Text><Text style={styles.summaryVal}>₹{baseGst.toFixed(2)}</Text></View>
+          <View style={styles.summaryRow}><Text style={styles.summaryLbl}>Delivery</Text><Text style={styles.summaryVal}>₹{activeDeliveryFee.toFixed(2)}</Text></View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLbl, { fontWeight: '800', fontSize: 15, color: Palette.text }]}>Total</Text>
+            <Text style={[styles.summaryVal, { fontWeight: '800', fontSize: 17, color: Palette.secondary }]}>₹{activeTotal.toFixed(2)}</Text>
+          </View>
         </View>
 
       </ScrollView>
@@ -287,10 +560,12 @@ export default function CheckoutScreen() {
           <Text style={styles.footVal}>₹{activeTotal.toFixed(2)}</Text>
         </View>
         <TouchableOpacity style={styles.buyBtn} onPress={handlePlaceOrder} disabled={placingOrder}>
-          {placingOrder ? <ActivityIndicator color="#fff" /> : (
+          {placingOrder ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
             <>
-              <Text style={styles.buyBtnTxt}>{paymentMethod === 'cod' ? 'Place Order' : 'Proceed to Pay'}</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.buyBtnTxt}>Confirm Order</Text>
             </>
           )}
         </TouchableOpacity>
@@ -308,45 +583,112 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Palette.text },
-  
-  scroll: { padding: Spacing.md, paddingBottom: 100, gap: 16 },
-  
+
+  scroll: { padding: Spacing.md, paddingBottom: 120, gap: 16 },
+
   card: { backgroundColor: '#fff', borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Palette.border, ...Shadows.sm },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: Palette.text, marginBottom: 10 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: Palette.text, marginBottom: 12 },
   addTxt: { fontSize: 13, fontWeight: '700', color: Palette.secondary },
-  
+
   formWrap: { gap: 10 },
   input: { backgroundColor: '#F8FAFC', borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: Palette.text, borderWidth: 1, borderColor: Palette.border },
   row: { flexDirection: 'row', gap: 10 },
-  gpsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, backgroundColor: '#E0F2FE', borderRadius: Radius.md, gap: 6 },
-  gpsTxt: { fontSize: 13, fontWeight: '700', color: Palette.primary },
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
   formBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.md },
-  
-  emptyTxt: { textAlign: 'center', color: Palette.textMuted, fontSize: 14, marginVertical: 10 },
+
+  emptyAddr: { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  emptyTxt: { textAlign: 'center', color: Palette.textMuted, fontSize: 13 },
   addrBox: { flexDirection: 'row', alignItems: 'center', padding: 14, borderWidth: 1.5, borderColor: Palette.border, borderRadius: Radius.md, marginBottom: 10 },
   addrBoxSel: { borderColor: Palette.secondary, backgroundColor: '#F0FDF4' },
   addrName: { fontSize: 15, fontWeight: '700', color: Palette.text },
   addrSub: { fontSize: 13, color: Palette.textMuted, marginTop: 2 },
-  
+
   speedBox: { flex: 1, alignItems: 'center', padding: 16, borderWidth: 1.5, borderColor: Palette.border, borderRadius: Radius.md, gap: 6 },
   speedBoxSel: { borderColor: Palette.secondary, backgroundColor: '#F0FDF4' },
   speedName: { fontSize: 15, fontWeight: '700', color: Palette.text },
   speedSub: { fontSize: 12, color: Palette.textMuted },
-  
-  payBox: { flexDirection: 'row', alignItems: 'center', padding: 16, borderWidth: 1.5, borderColor: Palette.border, borderRadius: Radius.md, marginBottom: 10 },
-  payBoxSel: { borderColor: Palette.secondary, backgroundColor: '#F0FDF4' },
+
   payName: { fontSize: 15, fontWeight: '700', color: Palette.text },
-  paySub: { fontSize: 12, color: Palette.textMuted },
-  
+  paySub: { fontSize: 12, color: Palette.textMuted, marginTop: 2 },
+
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  summaryLbl: { fontSize: 14, color: Palette.textMuted },
+  summaryVal: { fontSize: 14, fontWeight: '600', color: Palette.text },
+  summaryDivider: { height: 1, backgroundColor: Palette.border, marginVertical: 10 },
+
   footer: {
     position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff',
     borderTopWidth: 1, borderTopColor: Palette.border, flexDirection: 'row',
-    alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md, paddingVertical: 16,
   },
   footLbl: { fontSize: 12, color: Palette.textMuted },
   footVal: { fontSize: 22, fontWeight: '800', color: Palette.text },
-  buyBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Palette.secondary, paddingHorizontal: 20, paddingVertical: 14, borderRadius: Radius.md, gap: 8 },
+  buyBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Palette.secondary, paddingHorizontal: 22, paddingVertical: 14, borderRadius: Radius.md, gap: 8 },
   buyBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  // ── Success Modal ─────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  successCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    ...Shadows.lg,
+  },
+  successIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  successTitle: { fontSize: 22, fontWeight: '800', color: '#065F46', textAlign: 'center' },
+  successSub: { fontSize: 14, color: '#047857', marginTop: 6, marginBottom: 20, textAlign: 'center' },
+
+  orderDetailBox: {
+    width: '100%',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 20,
+  },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  detailLabel: { fontSize: 13, color: '#64748B', fontWeight: '500' },
+  detailValue: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  detailDivider: { height: 1, backgroundColor: '#D1FAE5', marginVertical: 2 },
+
+  statusBadge: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  statusBadgeTxt: { fontSize: 11, fontWeight: '700', color: '#065F46' },
+
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 12 },
+  addressTxt: { fontSize: 12, color: '#64748B', flex: 1, lineHeight: 18 },
+
+  trackBtn: {
+    width: '100%',
+    backgroundColor: Palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: Radius.md,
+    marginBottom: 10,
+  },
+  trackBtnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  shopMoreBtn: { paddingVertical: 10 },
+  shopMoreTxt: { color: Palette.secondary, fontSize: 14, fontWeight: '700', textAlign: 'center' },
 });

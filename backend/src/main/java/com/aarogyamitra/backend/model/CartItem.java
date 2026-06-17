@@ -9,11 +9,19 @@ import lombok.NoArgsConstructor;
 @Table(name = "cart_items")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class CartItem {
+    public CartItem(Long id, String userEmail, Product product, Integer quantity) {
+        this.id = id;
+        this.userEmail = userEmail;
+        this.product = product;
+        this.quantity = quantity;
+    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     private String userEmail;
 

@@ -17,6 +17,8 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getBackendUrl } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { realtimeDb } from '@/lib/firebase';
+import { ref, onValue, off } from 'firebase/database';
 
 const CATEGORIES = [
   { id: 'Medicines', name: 'Medicines', icon: 'medical' as const, color: '#10B981', bg: '#D1FAE5' },
@@ -43,6 +45,21 @@ type Product = {
   manufacturer: string;
   inStock: boolean;
 };
+
+// ─── Skeleton card for loading placeholder ────────────────────────────────────
+function SkeletonCard({ shimmer }: { shimmer: Animated.Value }) {
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+  return (
+    <Animated.View style={[styles.productCard, { opacity }]}>
+      <View style={styles.skeletonImage} />
+      <View style={styles.skeletonBody}>
+        <View style={[styles.skeletonLine, { width: '60%', height: 8 }]} />
+        <View style={[styles.skeletonLine, { width: '90%', height: 12 }]} />
+        <View style={[styles.skeletonLine, { width: '40%', height: 10, marginTop: 8 }]} />
+      </View>
+    </Animated.View>
+  );
+}
 
 function ProductCard({ item, onPress }: { item: Product; onPress: () => void }) {
   return (
@@ -83,8 +100,20 @@ export default function PharmacyHome() {
   const [featured, setFeatured] = useState<Product[]>([]);
   const [recommended, setRecommended] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backendWaking, setBackendWaking] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  // Shimmer loop for skeleton cards
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   useEffect(() => {
     fetchHomeData();
@@ -94,10 +123,18 @@ export default function PharmacyHome() {
   const fetchHomeData = async () => {
     try {
       setLoading(true);
+
+      // Wake-up ping with a short timeout to detect cold start
+      const wakeTimer = setTimeout(() => setBackendWaking(true), 3000);
+
       const [featRes, recRes] = await Promise.all([
         fetch(getBackendUrl('/api/pharmacy/products/featured')),
         fetch(getBackendUrl('/api/pharmacy/products/recommended')),
       ]);
+
+      clearTimeout(wakeTimer);
+      setBackendWaking(false);
+
       if (featRes.ok) setFeatured((await featRes.json()).slice(0, 8));
       if (recRes.ok) setRecommended((await recRes.json()).slice(0, 8));
     } catch (error) {
@@ -106,6 +143,35 @@ export default function PharmacyHome() {
       setLoading(false);
     }
   };
+
+  // Real-time listener for live stock updates
+  useEffect(() => {
+    const productsRef = ref(realtimeDb, 'realtime/products');
+    
+    const handleData = (snapshot: any) => {
+      const val = snapshot.val();
+      if (val) {
+        setFeatured(prev => prev.map(p => {
+          if (val[p.id] && val[p.id].stock !== undefined) {
+            const newStock = val[p.id].stock;
+            return { ...p, stock: newStock, inStock: newStock > 0 };
+          }
+          return p;
+        }));
+        
+        setRecommended(prev => prev.map(p => {
+          if (val[p.id] && val[p.id].stock !== undefined) {
+            const newStock = val[p.id].stock;
+            return { ...p, stock: newStock, inStock: newStock > 0 };
+          }
+          return p;
+        }));
+      }
+    };
+
+    onValue(productsRef, handleData);
+    return () => off(productsRef, 'value', handleData);
+  }, []);
 
   const handleSearchSubmit = () => {
     if (search.trim()) {
@@ -165,6 +231,14 @@ export default function PharmacyHome() {
           )}
         </View>
 
+        {/* Backend cold-start notice */}
+        {backendWaking && (
+          <View style={styles.wakingBanner}>
+            <ActivityIndicator size="small" color={Palette.primary} />
+            <Text style={styles.wakingText}>Server is starting up, please wait a moment...</Text>
+          </View>
+        )}
+
         {/* Offers */}
         <Text style={styles.sectionTitle}>Offers & Deals</Text>
         <ScrollView
@@ -206,7 +280,17 @@ export default function PharmacyHome() {
 
         {/* Products */}
         {loading ? (
-          <ActivityIndicator size="large" color={Palette.secondary} style={{ marginVertical: 40 }} />
+          <>
+            {/* Skeleton placeholder rows */}
+            <Text style={styles.sectionTitle}>⭐ Top Rated</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
+              {[1, 2, 3].map(k => <SkeletonCard key={k} shimmer={shimmerAnim} />)}
+            </ScrollView>
+            <Text style={styles.sectionTitle}>🔥 Popular</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
+              {[1, 2, 3].map(k => <SkeletonCard key={k} shimmer={shimmerAnim} />)}
+            </ScrollView>
+          </>
         ) : (
           <>
             {featured.length > 0 && (
@@ -248,6 +332,16 @@ export default function PharmacyHome() {
                   )}
                   contentContainerStyle={styles.hList}
                 />
+              </View>
+            )}
+
+            {featured.length === 0 && recommended.length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="storefront-outline" size={56} color="#CBD5E1" />
+                <Text style={styles.emptyTitle}>No products available</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={fetchHomeData}>
+                  <Text style={styles.retryTxt}>Retry</Text>
+                </TouchableOpacity>
               </View>
             )}
           </>
@@ -293,6 +387,22 @@ const styles = StyleSheet.create({
   },
 
   scrollBody: { paddingBottom: 100 },
+
+  // Backend waking banner
+  wakingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#EFF6FF',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  wakingText: { fontSize: 12, color: '#1E40AF', fontWeight: '600', flex: 1 },
 
   // Search
   searchCard: {
@@ -424,6 +534,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   ratingText: { fontSize: 11, fontWeight: '700', color: '#92400E' },
+
+  // Skeleton placeholders
+  skeletonImage: { width: '100%', height: 110, backgroundColor: '#E2E8F0' },
+  skeletonBody: { padding: 10, gap: 6 },
+  skeletonLine: { backgroundColor: '#E2E8F0', borderRadius: 4 },
+
+  // Empty state
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
+  emptyTitle: { fontSize: 16, color: Palette.textMuted, marginTop: 12 },
+  retryBtn: { marginTop: 16, backgroundColor: Palette.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: Radius.md },
+  retryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   // Floating Cart
   floatingCart: {

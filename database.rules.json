@@ -1,0 +1,76 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$sanitizedEmail": {
+        "profile": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['email', 'lastActive'])"
+        },
+        "session": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    "orders": {
+      "$sanitizedEmail": {
+        "$orderId": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['orderId', 'userEmail', 'total', 'orderStatus'])"
+        }
+      }
+    },
+
+    "notifications": {
+      "$sanitizedEmail": {
+        ".read": "auth != null",
+        "$notifId": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['title', 'message', 'type', 'read', 'createdAt'])"
+        }
+      }
+    },
+
+    "chatbot": {
+      "$sanitizedEmail": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
+    "product_views": {
+      "$productId": {
+        ".read": true,
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['viewCount'])"
+      }
+    },
+
+    "analytics": {
+      "counters": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      },
+      "events": {
+        "$date": {
+          ".read": "auth != null",
+          "$eventId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['event', 'timestamp'])"
+          }
+        }
+      }
+    },
+
+    "app_config": {
+      ".read": true,
+      ".write": "auth != null"
+    }
+  }
+}

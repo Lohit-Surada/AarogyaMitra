@@ -1,3 +1,4 @@
+import React from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,16 +8,24 @@ import { AuthProvider } from '@/lib/auth';
 import '@/lib/firebase';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useUserActivity } from '@/hooks/useUserActivity';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+/** Inner component that uses hooks after AuthProvider is mounted */
+function AppShell({ children }: { children: React.ReactNode }) {
+  useUserActivity(); // Tracks session, last-seen & analytics in RTDB
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
     <AuthProvider>
+      <AppShell>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen
@@ -135,6 +144,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
+      </AppShell>
     </AuthProvider>
   );
 }

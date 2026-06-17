@@ -15,28 +15,16 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { getBackendUrl } from '@/utils/api';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 
-type CartItem = {
-  id: number;
-  quantity: number;
-  product: {
-    id: number;
-    name: string;
-    price: number;
-    category: string;
-    imageUrl: string;
-    inStock: boolean;
-    stock: number;
-  };
-};
+import { getCart, updateCartQuantity, removeFromCart, CartItem as ServiceCartItem } from '@/services/cartService';
+
+type CartItem = ServiceCartItem;
 
 export default function CartScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const userEmail = user?.email || 'guest@aarogyamitra.com';
-
+  
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,18 +38,15 @@ export default function CartScreen() {
   const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(getBackendUrl(`/api/pharmacy/cart?email=${userEmail}`));
-      if (res.ok) {
-        const data = await res.json();
-        setCartItems(data);
-      }
+      const data = await getCart();
+      setCartItems(data);
     } catch (error) {
       console.error('Error fetching cart:', error);
     } finally {
       setLoading(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
-  }, [userEmail, fadeAnim]);
+  }, [fadeAnim]);
 
   useEffect(() => {
     fetchCart();
@@ -69,12 +54,8 @@ export default function CartScreen() {
 
   const updateQuantity = async (productId: number, newQty: number) => {
     try {
-      const res = await fetch(getBackendUrl('/api/pharmacy/cart/update'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, productId, quantity: newQty }),
-      });
-      if (res.ok) fetchCart();
+      await updateCartQuantity(productId, newQty);
+      fetchCart();
     } catch (error) {
       console.error(error);
     }
@@ -82,11 +63,8 @@ export default function CartScreen() {
 
   const removeItem = async (productId: number) => {
     try {
-      const res = await fetch(
-        getBackendUrl(`/api/pharmacy/cart/remove?email=${userEmail}&productId=${productId}`),
-        { method: 'DELETE' }
-      );
-      if (res.ok) fetchCart();
+      await removeFromCart(productId);
+      fetchCart();
     } catch (error) {
       console.error(error);
     }
@@ -207,7 +185,7 @@ export default function CartScreen() {
           <Animated.FlatList
             style={{ opacity: fadeAnim }}
             data={cartItems}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={(item, index) => (item.id ? item.id.toString() : item.product.id.toString() + '-' + index)}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}

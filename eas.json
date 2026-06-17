@@ -1,15 +1,11 @@
 {
   "cli": {
-    "version": ">= 20.0.0",
-    "appVersionSource": "local"
+    "version": ">= 7.0.0"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
+      "distribution": "internal"
     },
     "preview": {
       "distribution": "internal",
@@ -17,18 +13,7 @@
         "buildType": "apk"
       }
     },
-    "production": {
-      "android": {
-        "buildType": "app-bundle"
-      }
-    },
-    "apk": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
-      }
-    }
+    "production": {}
   },
   "submit": {
     "production": {}

@@ -9,11 +9,28 @@ import lombok.NoArgsConstructor;
 @Table(name = "products")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class Product {
+    public Product(Long id, String name, String description, Double price, String category, Integer stock, String imageUrl, Double ratings, Integer reviewCount, String uses, String sideEffects, String manufacturer, Boolean inStock) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.category = category;
+        this.stock = stock;
+        this.imageUrl = imageUrl;
+        this.ratings = ratings;
+        this.reviewCount = reviewCount;
+        this.uses = uses;
+        this.sideEffects = sideEffects;
+        this.manufacturer = manufacturer;
+        this.inStock = inStock;
+    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     private String name;
     

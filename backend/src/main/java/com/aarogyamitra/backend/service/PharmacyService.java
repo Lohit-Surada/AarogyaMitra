@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import com.razorpay.RazorpayClient;
+import org.json.JSONObject;
 
 @Service
 @Transactional
@@ -21,15 +23,21 @@ public class PharmacyService {
     private final CartItemRepository cartItemRepository;
     private final SavedAddressRepository savedAddressRepository;
     private final OrderRepository orderRepository;
+    private final FirebaseBroadcastService firebaseBroadcastService;
+
+    private static final String RZP_KEY_ID = "rzp_test_YourKeyIdHere";
+    private static final String RZP_KEY_SECRET = "YourKeySecretHere";
 
     public PharmacyService(ProductRepository productRepository,
                            CartItemRepository cartItemRepository,
                            SavedAddressRepository savedAddressRepository,
-                           OrderRepository orderRepository) {
+                           OrderRepository orderRepository,
+                           FirebaseBroadcastService firebaseBroadcastService) {
         this.productRepository = productRepository;
         this.cartItemRepository = cartItemRepository;
         this.savedAddressRepository = savedAddressRepository;
         this.orderRepository = orderRepository;
+        this.firebaseBroadcastService = firebaseBroadcastService;
     }
 
     // --- PRODUCTS ---
@@ -125,6 +133,17 @@ public class PharmacyService {
         return orderRepository.findById(id);
     }
 
+    public String createRazorpayOrder(Double amount) throws Exception {
+        RazorpayClient client = new RazorpayClient(RZP_KEY_ID, RZP_KEY_SECRET);
+        JSONObject orderRequest = new JSONObject();
+        orderRequest.put("amount", (int) Math.round(amount * 100)); // amount in paise
+        orderRequest.put("currency", "INR");
+        orderRequest.put("receipt", "txn_" + System.currentTimeMillis());
+
+        com.razorpay.Order razorpayOrder = client.orders.create(orderRequest);
+        return razorpayOrder.get("id");
+    }
+
     public Order placeOrder(String email, Order orderRequest, List<CartItem> cartItems) {
         Order order = new Order();
         order.setUserEmail(email);
@@ -163,27 +182,38 @@ public class PharmacyService {
                 prod.setInStock(false);
             }
             productRepository.save(prod);
+            firebaseBroadcastService.broadcastStockUpdate(prod.getId(), newStock);
         }
         order.setOrderItems(items);
 
         Order savedOrder = orderRepository.save(order);
         cartItemRepository.deleteByUserEmail(email);
+        
+        firebaseBroadcastService.broadcastOrderStatusUpdate(email, savedOrder.getId(), savedOrder.getOrderStatus());
         return savedOrder;
     }
 
     public void cancelOrder(String email, Long orderId) {
-        orderRepository.findById(orderId).ifPresent(order -> {
-            if (order.getUserEmail().equalsIgnoreCase(email) && order.getOrderStatus().equals("PLACED")) {
-                order.setOrderStatus("CANCELLED");
-                // Revert stocks
-                for (OrderItem item : order.getOrderItems()) {
-                    Product prod = item.getProduct();
-                    prod.setStock(prod.getStock() + item.getQuantity());
-                    prod.setInStock(true);
-                    productRepository.save(prod);
-                }
-                orderRepository.save(order);
-            }
-        });
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!order.getUserEmail().equals(email)) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("DELIVERED".equals(order.getOrderStatus()) || "CANCELLED".equals(order.getOrderStatus())) {
+            throw new RuntimeException("Order cannot be cancelled");
+        }
+        order.setOrderStatus("CANCELLED");
+        
+        // Restore stock
+        for (OrderItem oi : order.getOrderItems()) {
+            Product prod = oi.getProduct();
+            int newStock = prod.getStock() + oi.getQuantity();
+            prod.setStock(newStock);
+            prod.setInStock(true);
+            productRepository.save(prod);
+            firebaseBroadcastService.broadcastStockUpdate(prod.getId(), newStock);
+        }
+        
+        orderRepository.save(order);
+        firebaseBroadcastService.broadcastOrderStatusUpdate(email, order.getId(), "CANCELLED");
     }
 }
