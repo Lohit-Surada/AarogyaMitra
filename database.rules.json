@@ -38,6 +38,13 @@
       }
     },
 
+    "payments": {
+      "$orderId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
     "notifications": {
       "$sanitizedEmail": {
         ".read": "auth != null",

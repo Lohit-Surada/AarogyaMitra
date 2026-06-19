@@ -294,9 +294,10 @@ export default function PaymentScreen() {
         throw new Error(verifyData.message ?? 'Payment verification failed');
       }
 
+      const displayId = verifyData.order?.id ? Number(verifyData.order.id) + 10000 : razorpayOrderId;
       // Sync to Firebase RTDB for real-time order tracking
       const orderPayload = {
-        id: verifyData.order?.id ?? razorpayOrderId,
+        id: displayId,
         orderStatus: 'PLACED',
         paymentMethod: 'RAZORPAY',
         paymentStatus: 'PAID',
@@ -315,7 +316,7 @@ export default function PaymentScreen() {
       await syncOrderToRTDB(email ?? '', orderPayload);
       await clearCart();
 
-      setSuccessOrderId(String(verifyData.order?.id ?? razorpayOrderId));
+      setSuccessOrderId(String(displayId));
       setPaymentDone(true);
     } catch (err: any) {
       processingRef.current = false;

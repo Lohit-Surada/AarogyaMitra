@@ -169,7 +169,7 @@ public class PharmacyController {
     @PostMapping("/orders/cod")
     public ResponseEntity<?> placeCodOrder(@RequestBody Map<String, Object> payload) {
         try {
-            String email = getAuthenticatedEmail();
+            String email = payload.get("email") != null ? payload.get("email").toString() : getAuthenticatedEmail();
             List<CartItem> cartItems = new java.util.ArrayList<>(pharmacyService.getCart(email));
             
             // Fallback to payload orderItems if SQL cart is empty (since frontend uses RTDB)

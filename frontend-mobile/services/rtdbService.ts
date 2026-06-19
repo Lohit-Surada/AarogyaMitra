@@ -136,7 +136,7 @@ export async function endUserSession(email: string): Promise<void> {
 export async function syncOrderToRTDB(email: string, order: any): Promise<void> {
   if (!email || !order) return;
   const key = sanitizeEmail(email);
-  const orderId = String(order.id ?? `order_${Date.now()}`);
+  const orderId = String(order.id ?? Math.floor(100000 + Math.random() * 900000));
 
   const payload = {
     ...order, // preserve any extra fields passed in

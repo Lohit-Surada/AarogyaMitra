@@ -189,7 +189,7 @@ export default function CheckoutScreen() {
         return Alert.alert('Cart Empty', 'You have no items in your cart to place an order.');
       }
 
-      const orderId = `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const fallbackId = Math.floor(100000 + Math.random() * 900000); // 6-digit integer fallback
 
       if (paymentMethod === 'cod') {
         // --- COD Flow: Place order via backend ---
@@ -207,6 +207,7 @@ export default function CheckoutScreen() {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
+            email: userEmail,
             shippingAddress: fullAddr,
             subtotal: baseSubtotal,
             discount: baseDiscount,
@@ -222,10 +223,13 @@ export default function CheckoutScreen() {
         let savedOrder: PlacedOrder;
         if (codRes.ok) {
           savedOrder = await codRes.json();
+          if (savedOrder.id) {
+            savedOrder.id = Number(savedOrder.id) + 10000;
+          }
         } else {
           // Fallback: create a local order object if backend fails
           savedOrder = {
-            id: orderId as any,
+            id: fallbackId as any,
             orderStatus: 'PLACED',
             paymentMethod: 'COD',
             paymentStatus: 'PENDING',
@@ -241,7 +245,7 @@ export default function CheckoutScreen() {
 
         const rtdbPayload = {
           ...savedOrder,
-          id: String(savedOrder.id ?? orderId),
+          id: String(savedOrder.id ?? fallbackId),
           orderStatus: 'PLACED',
           paymentMethod: 'COD',
           paymentStatus: 'PENDING',
