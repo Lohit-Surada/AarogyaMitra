@@ -154,17 +154,31 @@ export async function syncOrderToRTDB(email: string, order: any): Promise<void> 
     orderItems: order.orderItems ?? [], // save actual items for display
   };
 
-  try {
-    await set(ref(realtimeDb, `orders/${key}/${orderId}`), payload);
+    try {
+      await set(ref(realtimeDb, `orders/${key}/${orderId}`), payload);
 
-    // Update global order counter
-    await update(ref(realtimeDb, 'analytics/counters'), {
-      total_orders: increment(1),
-      [`orders_${today()}`]: increment(1),
-    });
+      // Save a dedicated payment log if it's a paid order
+      if (order.paymentStatus === 'PAID') {
+        await set(ref(realtimeDb, `payments/${orderId}`), {
+          orderId,
+          paymentId: order.razorpayPaymentId ?? '',
+          userId: email,
+          products: order.orderItems ?? [],
+          amount: order.total ?? 0,
+          paymentMethod: order.paymentMethod ?? 'RAZORPAY',
+          status: order.orderStatus ?? 'PLACED',
+          timestamp: new Date().toISOString()
+        });
+      }
 
-    console.log(`[RTDB] ✅ Order #${orderId} synced`);
-  } catch (err) {
+      // Update global order counter
+      await update(ref(realtimeDb, 'analytics/counters'), {
+        total_orders: increment(1),
+        [`orders_${today()}`]: increment(1),
+      });
+
+      console.log(`[RTDB] ✅ Order #${orderId} synced`);
+    } catch (err) {
     console.error('[RTDB] syncOrderToRTDB error:', err);
   }
 }

@@ -82,7 +82,7 @@ export default function PaymentScreen() {
     </head>
     <body>
         <div class="loader"></div>
-        <p>Loading Razorpay (UPI Forced)...</p>
+        <p>Loading Razorpay Secure Checkout...</p>
         <script>
             var options = {
                 "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_T1PJqNDePfxDYz'}",
@@ -92,24 +92,7 @@ export default function PaymentScreen() {
                 "description": "Medicine Order Checkout",
                 "order_id": "${razorpayOrderId ?? ''}",
                 "prefill": {
-                    "email": "${email ?? ''}",
-                    "method": "upi"
-                },
-                "config": {
-                    "display": {
-                        "blocks": {
-                            "upi": {
-                                "name": "Pay with UPI",
-                                "instruments": [
-                                    { "method": "upi" }
-                                ]
-                            }
-                        },
-                        "sequence": ["block.upi"],
-                        "preferences": {
-                            "show_default_blocks": true
-                        }
-                    }
+                    "email": "${email ?? ''}"
                 },
                 "theme": { "color": "#10b981" },
                 "handler": function (response) {
@@ -253,13 +236,6 @@ export default function PaymentScreen() {
     }
   };
 
-  // ── Development Only: Simulate Success ────────────────────────────────────────
-  const simulateSuccess = () => {
-    // The backend PaymentController.java accepts "sandbox_sig" to bypass signature validation
-    const dummyUrl = `http://dummy/api/payment/callback?razorpayPaymentId=pay_sandbox_${Date.now()}&razorpaySignature=sandbox_sig`;
-    handlePaymentSuccess(dummyUrl);
-  };
-
   // ── Success Screen ───────────────────────────────────────────────────────────
   if (paymentDone) {
     return (
@@ -358,30 +334,6 @@ export default function PaymentScreen() {
         <Text style={styles.amountLabel}>Amount to Pay</Text>
         <Text style={styles.amountValue}>₹{parseFloat(amount ?? '0').toFixed(2)}</Text>
       </View>
-
-      {/* DEV ONLY: Test Payment Bypasser */}
-      {__DEV__ && (
-        <TouchableOpacity
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 16,
-            backgroundColor: '#10B981',
-            padding: 14,
-            borderRadius: 8,
-            alignItems: 'center',
-            shadowColor: '#10B981',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 6,
-            elevation: 4,
-          }}
-          onPress={simulateSuccess}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-            🛠️ Developer: Bypass Payment (Success)
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* WebView */}
       <View style={{ flex: 1, position: 'relative' }}>

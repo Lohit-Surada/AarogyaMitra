@@ -126,7 +126,7 @@ public class PaymentController {
             @RequestParam(required = false) Double latitude,
             @RequestParam(required = false) Double longitude) {
 
-        boolean isValid = razorpaySignature.equals("sandbox_sig") || paymentService.verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+        boolean isValid = paymentService.verifySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
         if (!isValid) {
             return "<html><body><h1 style='color: red; text-align: center; margin-top: 50px;'>Payment Verification Failed</h1></body></html>";
         }
@@ -236,7 +236,7 @@ public class PaymentController {
             String paymentId = (String) payload.get("razorpayPaymentId");
             String signature = (String) payload.get("razorpaySignature");
 
-            boolean isValid = signature.equals("sandbox_sig") || paymentService.verifySignature(orderId, paymentId, signature);
+            boolean isValid = paymentService.verifySignature(orderId, paymentId, signature);
             if (!isValid) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
