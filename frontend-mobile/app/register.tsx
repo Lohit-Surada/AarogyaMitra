@@ -1,23 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { Palette, Radius, Spacing } from '@/constants/theme';
+import { auth } from '@/lib/firebase';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, useRouter } from 'expo-router';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
-  ActivityIndicator,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Animated,
-  Text,
 } from 'react-native';
-import { Link, useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { Ionicons } from '@expo/vector-icons';
-import { auth } from '@/lib/firebase';
-import { Palette, Spacing, Radius } from '@/constants/theme';
 
 function InputField({
   label,

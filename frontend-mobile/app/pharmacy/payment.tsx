@@ -105,8 +105,7 @@ export default function PaymentScreen() {
     <body>
         <div class="card">
             <div class="logo">🏥</div>
-            <h2>AarogyaMitra Pharmacy</h2>
-            <div class="amount">₹${parseFloat(amount ?? '0').toFixed(2)}</div>
+            <div class="amount" style="margin-top: 8px;">₹${parseFloat(amount ?? '0').toFixed(2)}</div>
             <div class="loader"></div>
             <p>Opening Razorpay Secure Checkout...</p>
         </div>
@@ -395,37 +394,8 @@ export default function PaymentScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            Alert.alert(
-              'Cancel Payment?',
-              'Are you sure you want to cancel this payment?',
-              [
-                { text: 'Continue Payment', style: 'cancel' },
-                { text: 'Cancel', style: 'destructive', onPress: () => router.back() },
-              ]
-            );
-          }}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={24} color={Palette.text} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Ionicons name="lock-closed" size={14} color="#059669" />
-          <Text style={styles.headerTitle}>Secure Payment</Text>
-        </View>
-        <View style={styles.poweredBy}>
-          <Text style={styles.poweredByTxt}>via Razorpay</Text>
-        </View>
-      </View>
-
-      {/* Amount Banner */}
-      <View style={styles.amountBanner}>
-        <Text style={styles.amountLabel}>Amount to Pay</Text>
-        <Text style={styles.amountValue}>₹{parseFloat(amount ?? '0').toFixed(2)}</Text>
-      </View>
+      {/* Spacer for status bar/notch since custom header was removed */}
+      <View style={{ height: HEADER_PADDING_TOP, backgroundColor: '#fff' }} />
 
       {/* WebView */}
       <View style={{ flex: 1, position: 'relative' }}>
@@ -483,42 +453,7 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#fff' },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: HEADER_PADDING_TOP,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backBtn: { padding: 4 },
-  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: Palette.text },
-  poweredBy: {
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  poweredByTxt: { fontSize: 11, fontWeight: '700', color: '#059669' },
 
-  // Amount banner
-  amountBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#A7F3D0',
-  },
-  amountLabel: { fontSize: 13, color: '#047857', fontWeight: '600' },
-  amountValue: { fontSize: 20, fontWeight: '800', color: '#065F46' },
 
   // WebView
   webView: { flex: 1 },

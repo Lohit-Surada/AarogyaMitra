@@ -46,9 +46,7 @@ export default function ProductDetails() {
   const [similar, setSimilar] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'desc' | 'uses' | 'sides'>('desc');
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [prescriptionUploaded, setPrescriptionUploaded] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -101,23 +99,6 @@ export default function ProductDetails() {
     if (!product) return;
     if (!product.inStock) {
       Alert.alert('Out of Stock', 'This product is currently unavailable.');
-      return;
-    }
-    if (product.category === 'Medicines' && !prescriptionUploaded) {
-      Alert.alert(
-        'Prescription Required',
-        'Please upload your prescription for this medicine.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Mock Upload',
-            onPress: () => {
-              setPrescriptionUploaded(true);
-              Alert.alert('Success', 'Prescription validated.');
-            },
-          },
-        ]
-      );
       return;
     }
 
@@ -217,49 +198,27 @@ export default function ProductDetails() {
           </View>
         </View>
 
-        {product.category === 'Medicines' && (
-          <View style={styles.rxCard}>
-            <View style={styles.rxHeader}>
-              <Ionicons name="document-text" size={22} color="#059669" />
-              <View>
-                <Text style={styles.rxTitle}>Prescription Required</Text>
-                <Text style={styles.rxSub}>Please provide a valid Rx</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={[styles.rxBtn, prescriptionUploaded && styles.rxBtnDone]}
-              onPress={() => setPrescriptionUploaded(true)}
-            >
-              <Ionicons
-                name={prescriptionUploaded ? 'checkmark-circle' : 'cloud-upload'}
-                size={18}
-                color={prescriptionUploaded ? '#fff' : '#059669'}
-              />
-              <Text style={[styles.rxBtnText, prescriptionUploaded && { color: '#fff' }]}>
-                {prescriptionUploaded ? 'Rx Verified' : 'Upload Rx (Mock)'}
-              </Text>
-            </TouchableOpacity>
+        {/* Product Details block */}
+        <View style={styles.detailsBlock}>
+          <Text style={styles.sectionTitle}>Product Details</Text>
+          <View style={styles.detailsCard}>
+            <Text style={styles.detailText}>
+              <Text style={styles.detailLabel}>Description: </Text>
+              {product.description || 'No description available.'}
+            </Text>
+            <Text style={styles.detailText}>
+              <Text style={styles.detailLabel}>Manufacturer: </Text>
+              {product.manufacturer || 'N/A'}
+            </Text>
+            <Text style={styles.detailText}>
+              <Text style={styles.detailLabel}>Category: </Text>
+              {product.category || 'N/A'}
+            </Text>
+            <Text style={styles.detailText}>
+              <Text style={styles.detailLabel}>Package Size: </Text>
+              {product.category === 'Medicines' ? '1 Strip (10-15 Units)' : '1 Unit / Pack'}
+            </Text>
           </View>
-        )}
-
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          {(['desc', 'uses', 'sides'] as const).map(tab => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'desc' ? 'Overview' : tab === 'uses' ? 'Uses' : 'Side Effects'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.tabContent}>
-          {activeTab === 'desc' && <Text style={styles.bodyText}>{product.description}</Text>}
-          {activeTab === 'uses' && <Text style={styles.bodyText}>{product.uses}</Text>}
-          {activeTab === 'sides' && <Text style={styles.bodyText}>{product.sideEffects}</Text>}
         </View>
 
         {similar.length > 0 && (
@@ -371,47 +330,28 @@ const styles = StyleSheet.create({
   ratingVal: { fontSize: 14, fontWeight: '700', color: '#92400E' },
   ratingCount: { fontSize: 12, color: '#B45309' },
 
-  rxCard: {
-    marginHorizontal: Spacing.md,
+  detailsBlock: {
+    marginTop: Spacing.sm,
     marginBottom: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: '#ECFDF5',
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  rxHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  rxTitle: { fontSize: 14, fontWeight: '700', color: '#065F46' },
-  rxSub: { fontSize: 11, color: '#047857' },
-  rxBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  rxBtnDone: { backgroundColor: '#059669' },
-  rxBtnText: { fontSize: 12, fontWeight: '700', color: '#059669' },
-
-  tabContainer: {
-    flexDirection: 'row',
+  detailsCard: {
     marginHorizontal: Spacing.md,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
     borderRadius: Radius.md,
-    padding: 4,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radius.sm },
-  tabBtnActive: { backgroundColor: '#fff', ...Shadows.sm },
-  tabText: { fontSize: 13, fontWeight: '600', color: Palette.textMuted },
-  tabTextActive: { color: Palette.secondary },
-  tabContent: { padding: Spacing.md },
-  bodyText: { fontSize: 14, lineHeight: 22, color: '#475569' },
+  detailText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#334155',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontWeight: '800',
+    color: '#0F172A',
+  },
 
   similarBlock: { marginTop: Spacing.md },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: Palette.text, marginHorizontal: Spacing.md, marginBottom: 12 },

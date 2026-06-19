@@ -306,11 +306,6 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.serviceTitle}>{svc.title}</Text>
                 <Text style={styles.serviceSubtitle}>{svc.subtitle}</Text>
-                {svc.requiresAuth && !user && (
-                  <View style={styles.lockBadge}>
-                    <Ionicons name="lock-closed" size={10} color="#fff" />
-                  </View>
-                )}
               </Pressable>
             ))}
           </View>
@@ -577,17 +572,6 @@ const styles = StyleSheet.create({
   },
   serviceTitle: { fontSize: 15, fontWeight: '700', color: Palette.text },
   serviceSubtitle: { fontSize: 12, color: Palette.textMuted, marginTop: 2 },
-  lockBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: '#94A3B8',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   // Quick Actions
   quickActions: { flexDirection: 'row', gap: 12, marginBottom: Spacing.md },

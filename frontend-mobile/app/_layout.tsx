@@ -78,7 +78,8 @@ export default function RootLayout() {
 
           {/* Pharmacy Screens */}
           <Stack.Screen name="pharmacy/index" options={{ headerShown: false, animation: 'none' }} />
-          <Stack.Screen name="pharmacy/product/[id]" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/[id]" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/listing" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pharmacy/cart" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pharmacy/checkout" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="pharmacy/payment" options={{ headerShown: false, animation: 'none' }} />
