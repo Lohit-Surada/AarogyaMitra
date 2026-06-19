@@ -170,10 +170,31 @@ public class PharmacyController {
     public ResponseEntity<?> placeCodOrder(@RequestBody Map<String, Object> payload) {
         try {
             String email = getAuthenticatedEmail();
-            List<CartItem> cartItems = pharmacyService.getCart(email);
+            List<CartItem> cartItems = new java.util.ArrayList<>(pharmacyService.getCart(email));
+            
+            // Fallback to payload orderItems if SQL cart is empty (since frontend uses RTDB)
+            if (cartItems.isEmpty()) {
+                List<Map<String, Object>> payloadItems = (List<Map<String, Object>>) payload.get("orderItems");
+                if (payloadItems != null && !payloadItems.isEmpty()) {
+                    for (Map<String, Object> itemMap : payloadItems) {
+                        Map<String, Object> prodMap = (Map<String, Object>) itemMap.get("product");
+                        if (prodMap != null && prodMap.get("id") != null) {
+                            Long productId = Long.valueOf(prodMap.get("id").toString());
+                            int quantity = Integer.parseInt(itemMap.get("quantity").toString());
+                            java.util.Optional<com.aarogyamitra.backend.model.Product> pOpt = pharmacyService.getProductById(productId);
+                            if (pOpt.isPresent()) {
+                                CartItem ci = new CartItem(null, email, pOpt.get(), quantity);
+                                cartItems.add(ci);
+                            }
+                        }
+                    }
+                }
+            }
+
             if (cartItems.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Cart is empty"));
             }
+            
             com.aarogyamitra.backend.model.Order orderRequest = new com.aarogyamitra.backend.model.Order();
             orderRequest.setPaymentMethod("COD");
             orderRequest.setPaymentStatus("PENDING");

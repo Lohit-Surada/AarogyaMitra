@@ -215,6 +215,7 @@ export default function CheckoutScreen() {
             total: activeTotal,
             latitude: address.latitude ?? null,
             longitude: address.longitude ?? null,
+            orderItems: cartItems,
           }),
         });
 
