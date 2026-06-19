@@ -21,6 +21,7 @@ type ProductDetails = {
   id: number;
   name: string;
   imageUrl: string;
+  price?: number;
 };
 
 type OrderItem = {

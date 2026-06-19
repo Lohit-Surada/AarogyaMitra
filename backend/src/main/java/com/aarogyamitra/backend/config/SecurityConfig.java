@@ -35,7 +35,7 @@ public class SecurityConfig {
 				// Public: Health, chatbot, ML, payment, H2 console
 				.requestMatchers("/api/health", "/api/chatbot", "/api/predict-disease", "/api/symptoms", "/api/payment/**", "/h2-console/**").permitAll()
 				// Public: Product browsing (read-only) - no login needed
-				.requestMatchers(HttpMethod.GET, "/api/pharmacy/products", "/api/pharmacy/products/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/pharmacy/products", "/api/pharmacy/products/**", "/api/pharmacy/add-test-product").permitAll()
 				// All cart, orders, addresses require auth
 				.anyRequest().authenticated()
 			)

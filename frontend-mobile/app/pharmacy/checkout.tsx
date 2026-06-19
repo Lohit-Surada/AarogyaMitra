@@ -191,25 +191,70 @@ export default function CheckoutScreen() {
 
       const orderId = `order_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
-      const orderPayload: PlacedOrder = {
-        id: orderId as any,
-        orderStatus: 'PLACED',
-        paymentMethod: paymentMethod === 'cod' ? 'COD' : 'RAZORPAY_SIMULATED',
-        paymentStatus: paymentMethod === 'cod' ? 'PENDING' : 'PAID',
-        total: activeTotal,
-        subtotal: baseSubtotal,
-        gst: baseGst,
-        deliveryFee: activeDeliveryFee,
-        shippingAddress: fullAddr,
-        createdAt: new Date().toISOString(),
-        orderItems: cartItems
-      };
-
       if (paymentMethod === 'cod') {
-        // --- COD Flow ---
-        await syncOrderToRTDB(userEmail, orderPayload);
+        // --- COD Flow: Place order via backend ---
+        const cartItems = await getCart();
+        if (cartItems.length === 0) {
+          setPlacingOrder(false);
+          return Alert.alert('Cart Empty', 'You have no items in your cart to place an order.');
+        }
+
+        const token = user ? await (user as any).getIdToken?.() : null;
+        const codRes = await fetch(getBackendUrl('/api/pharmacy/orders/cod'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            shippingAddress: fullAddr,
+            subtotal: baseSubtotal,
+            discount: baseDiscount,
+            gst: baseGst,
+            deliveryFee: activeDeliveryFee,
+            total: activeTotal,
+            latitude: address.latitude ?? null,
+            longitude: address.longitude ?? null,
+          }),
+        });
+
+        let savedOrder: PlacedOrder;
+        if (codRes.ok) {
+          savedOrder = await codRes.json();
+        } else {
+          // Fallback: create a local order object if backend fails
+          savedOrder = {
+            id: orderId as any,
+            orderStatus: 'PLACED',
+            paymentMethod: 'COD',
+            paymentStatus: 'PENDING',
+            total: activeTotal,
+            subtotal: baseSubtotal,
+            gst: baseGst,
+            deliveryFee: activeDeliveryFee,
+            shippingAddress: fullAddr,
+            createdAt: new Date().toISOString(),
+            orderItems: cartItems,
+          };
+        }
+
+        const rtdbPayload = {
+          ...savedOrder,
+          id: String(savedOrder.id ?? orderId),
+          orderStatus: 'PLACED',
+          paymentMethod: 'COD',
+          paymentStatus: 'PENDING',
+          total: activeTotal,
+          subtotal: baseSubtotal,
+          gst: baseGst,
+          deliveryFee: activeDeliveryFee,
+          shippingAddress: fullAddr,
+          createdAt: new Date().toISOString(),
+          orderItems: cartItems,
+        };
+        await syncOrderToRTDB(userEmail, rtdbPayload);
         await clearCart();
-        setPlacedOrder(orderPayload);
+        setPlacedOrder(savedOrder);
         setSuccessVisible(true);
         setPlacingOrder(false);
       } else {

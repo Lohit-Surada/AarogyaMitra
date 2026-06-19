@@ -261,7 +261,7 @@ export default function MapsScreen() {
   /**
    * Filter places based on search text
    */
-  const getFilteredPlaces = () => {
+  const getFilteredPlaces = (): Place[] => {
     let places: Place[] = [];
 
     if (activeTab === 'hospitals' || activeTab === 'all') {
@@ -281,7 +281,7 @@ export default function MapsScreen() {
     }
 
     const uniquePlaces = Array.from(
-      new Map(places.map((place) => [`${place.placeType}-${place.id}`, place] as const)).values(),
+      new Map<string, Place>(places.map((place) => [`${place.placeType}-${place.id}`, place])).values(),
     );
 
     return sortPlacesByDistance(uniquePlaces);
@@ -303,7 +303,7 @@ export default function MapsScreen() {
     }
   };
 
-  const filteredPlaces = getFilteredPlaces();
+  const filteredPlaces: Place[] = getFilteredPlaces();
   const hospitalCount = nearbyPlaces.hospitals.length;
   const pharmacyCount = nearbyPlaces.pharmacies.length;
 
@@ -591,12 +591,12 @@ export default function MapsScreen() {
         ) : (
           <FlatList
             data={filteredPlaces}
-            keyExtractor={(item) => `${item.placeType}-${item.id}`}
-            renderItem={({ item }) => (
+            keyExtractor={(item: any) => `${item.placeType}-${item.id}`}
+            renderItem={({ item }: { item: any }) => (
               <Pressable
                 style={[
                   styles.placeListItem,
-                  selectedPlace?.id === item.id && styles.selectedPlaceItem,
+                  (selectedPlace as any)?.id === (item as any).id && styles.selectedPlaceItem,
                 ]}
                 onPress={() => handleMarkerPress(item)}>
                 <View style={styles.placeListContent}>
@@ -1141,19 +1141,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
-  },
-  routeSummaryBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    marginHorizontal: 12,
-    marginBottom: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#ecf6ff',
-    borderWidth: 1,
-    borderColor: '#cfe8fb',
   },
   summaryItem: {
     alignItems: 'center',

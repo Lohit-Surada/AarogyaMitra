@@ -162,18 +162,64 @@ public class PharmacyController {
         return ResponseEntity.ok().build();
     }
 
+    /**
+     * Place a Cash-on-Delivery order using the user's current cart.
+     * Expects: { shippingAddress, subtotal, discount, gst, deliveryFee, total, latitude?, longitude? }
+     */
+    @PostMapping("/orders/cod")
+    public ResponseEntity<?> placeCodOrder(@RequestBody Map<String, Object> payload) {
+        try {
+            String email = getAuthenticatedEmail();
+            List<CartItem> cartItems = pharmacyService.getCart(email);
+            if (cartItems.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Cart is empty"));
+            }
+            com.aarogyamitra.backend.model.Order orderRequest = new com.aarogyamitra.backend.model.Order();
+            orderRequest.setPaymentMethod("COD");
+            orderRequest.setPaymentStatus("PENDING");
+            orderRequest.setShippingAddress((String) payload.get("shippingAddress"));
+            orderRequest.setSubtotal(Double.valueOf(payload.get("subtotal").toString()));
+            orderRequest.setDiscount(Double.valueOf(payload.get("discount").toString()));
+            orderRequest.setGst(Double.valueOf(payload.get("gst").toString()));
+            orderRequest.setDeliveryFee(Double.valueOf(payload.get("deliveryFee").toString()));
+            orderRequest.setTotal(Double.valueOf(payload.get("total").toString()));
+            orderRequest.setLatitude(payload.get("latitude") != null && !payload.get("latitude").toString().isEmpty()
+                    ? Double.valueOf(payload.get("latitude").toString()) : null);
+            orderRequest.setLongitude(payload.get("longitude") != null && !payload.get("longitude").toString().isEmpty()
+                    ? Double.valueOf(payload.get("longitude").toString()) : null);
+            com.aarogyamitra.backend.model.Order savedOrder = pharmacyService.placeOrder(email, orderRequest, cartItems);
+            return ResponseEntity.ok(savedOrder);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to place COD order: " + e.getMessage()));
+        }
+    }
+
     @GetMapping("/add-test-product")
-    public ResponseEntity<Product> addTestProduct(@org.springframework.beans.factory.annotation.Autowired com.aarogyamitra.backend.repository.ProductRepository productRepo) {
+    public ResponseEntity<?> addTestProduct(@org.springframework.beans.factory.annotation.Autowired com.aarogyamitra.backend.repository.ProductRepository productRepo) {
+        // Idempotent: check if test product already exists
+        List<Product> existing = productRepo.findAll().stream()
+            .filter(p -> "Payment Testing Product".equals(p.getName()))
+            .collect(java.util.stream.Collectors.toList());
+        if (!existing.isEmpty()) {
+            return ResponseEntity.ok(java.util.Map.of(
+                "message", "Test product already exists",
+                "product", existing.get(0)
+            ));
+        }
         Product p = new Product();
-        p.setName("Test Product Rs. 1");
-        p.setDescription("A dummy product for testing payments.");
-        p.setCategory("Test");
+        p.setName("Payment Testing Product");
+        p.setDescription("A ₹1 product used to validate the Razorpay Live payment flow. No GST.");
+        p.setCategory("Testing");
         p.setPrice(1.0);
-        p.setStock(100);
+        p.setStock(9999);
         p.setInStock(true);
         p.setRatings(5.0);
         p.setReviewCount(0);
         p.setImageUrl("https://img.freepik.com/premium-vector/medicine-bottle-pills-black-white-vector-illustration_530521-1250.jpg");
-        return ResponseEntity.ok(productRepo.save(p));
+        Product saved = productRepo.save(p);
+        return ResponseEntity.ok(java.util.Map.of(
+            "message", "Test product created successfully",
+            "product", saved
+        ));
     }
 }

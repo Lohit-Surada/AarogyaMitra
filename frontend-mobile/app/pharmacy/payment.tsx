@@ -66,7 +66,7 @@ export default function PaymentScreen() {
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const processingRef = useRef(false);
 
-  // ── Build Local Checkout HTML (Forcing UPI Method) ───────────────────────────
+  // ── Build Local Checkout HTML (Full Payment Methods: UPI, QR, Cards, Net Banking, Wallets) ─
   const customHtml = `
     <!DOCTYPE html>
     <html>
@@ -82,19 +82,42 @@ export default function PaymentScreen() {
     </head>
     <body>
         <div class="loader"></div>
-        <p>Loading Razorpay Secure Checkout...</p>
+        <p>Opening Secure Checkout...</p>
         <script>
             var options = {
                 "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_T1PJqNDePfxDYz'}",
                 "amount": ${Math.round(parseFloat(amount ?? '0') * 100)},
                 "currency": "INR",
-                "name": "AarogyaMitra",
+                "name": "AarogyaMitra Pharmacy",
                 "description": "Medicine Order Checkout",
                 "order_id": "${razorpayOrderId ?? ''}",
                 "prefill": {
-                    "email": "${email ?? ''}"
+                    "email": "${email ?? ''}",
+                    "contact": ""
                 },
                 "theme": { "color": "#10b981" },
+                "config": {
+                    "display": {
+                        "blocks": {
+                            "upi": {
+                                "name": "UPI",
+                                "instruments": [
+                                    { "method": "upi", "flows": ["collect", "intent", "qr"] }
+                                ]
+                            },
+                            "other": {
+                                "name": "Other Methods",
+                                "instruments": [
+                                    { "method": "card" },
+                                    { "method": "netbanking" },
+                                    { "method": "wallet" }
+                                ]
+                            }
+                        },
+                        "sequence": ["block.upi", "block.other"],
+                        "preferences": { "show_default_blocks": false }
+                    }
+                },
                 "handler": function (response) {
                     var redirectUrl = "http://dummy/api/payment/callback?razorpayPaymentId=" + encodeURIComponent(response.razorpay_payment_id) + "&razorpaySignature=" + encodeURIComponent(response.razorpay_signature);
                     window.location.href = redirectUrl;

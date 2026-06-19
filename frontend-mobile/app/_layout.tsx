@@ -38,44 +38,62 @@ export default function RootLayout() {
             name="login"
             options={{
               headerShown: false,
-              animationEnabled: true,
+              animation: 'default',
             }}
           />
           <Stack.Screen
             name="register"
             options={{
               headerShown: false,
-              animationEnabled: true,
+              animation: 'default',
             }}
           />
           <Stack.Screen
             name="disease-prediction"
             options={{
               headerShown: false,
-              animationEnabled: true,
+              animation: 'default',
             }}
           />
           <Stack.Screen
             name="chatbot"
             options={{
               headerShown: false,
-              animationEnabled: true,
+              animation: 'default',
             }}
           />
-          <Stack.Screen
-            name="maps"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-              animationEnabled: false,
-            }}
-          />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="+not-found" options={{ animation: 'none' }} />
+
+          {/* Disease Detection Screens */}
+          <Stack.Screen name="disease/index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="disease/camera" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="disease/result" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="disease/history" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="disease/[id]" options={{ headerShown: false, animation: 'none' }} />
+
+          {/* Map Screens */}
+          <Stack.Screen name="maps" options={{ headerShown: false, animation: 'none' }} />
+
+          {/* Pharmacy Screens */}
+          <Stack.Screen name="pharmacy/index" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/product/[id]" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/cart" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/checkout" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/payment" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/orders" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="pharmacy/order/[id]" options={{ headerShown: false, animation: 'none' }} />
+
+          {/* User Session & Auth Screens */}
+          <Stack.Screen name="auth/login" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="auth/register" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="auth/onboarding" options={{ headerShown: false, animation: 'none' }} />
+
+          <Stack.Screen name="profile" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="about" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="support" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="settings" options={{ headerShown: false, animation: 'none' }} />
+          
           <Stack.Screen
             name="modal"
             options={{
@@ -84,61 +102,11 @@ export default function RootLayout() {
               headerShown: true,
             }}
           />
-          {/* Pharmacy Module */}
-          <Stack.Screen
-            name="pharmacy/index"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/[id]"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/listing"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/cart"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/checkout"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/payment"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="pharmacy/orders"
-            options={{
-              headerShown: false,
-              animationEnabled: true,
-            }}
-          />
           <Stack.Screen
             name="pharmacy/profile"
             options={{
               headerShown: false,
-              animationEnabled: true,
+              animation: 'none',
             }}
           />
         </Stack>
