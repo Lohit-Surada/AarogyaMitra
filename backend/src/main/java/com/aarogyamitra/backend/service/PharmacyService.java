@@ -25,8 +25,8 @@ public class PharmacyService {
     private final OrderRepository orderRepository;
     private final FirebaseBroadcastService firebaseBroadcastService;
 
-    private static final String RZP_KEY_ID = "rzp_test_YourKeyIdHere";
-    private static final String RZP_KEY_SECRET = "YourKeySecretHere";
+    private static final String RZP_KEY_ID = "rzp_live_T1PJqNDePfxDYz";
+    private static final String RZP_KEY_SECRET = "yjnF2Lrtmu2nyBTn2egz04Ho";
 
     public PharmacyService(ProductRepository productRepository,
                            CartItemRepository cartItemRepository,

@@ -70,7 +70,7 @@ export default function CheckoutScreen() {
 
   // Compliance & Checkout State
   const [prescriptionUploaded, setPrescriptionUploaded] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay' | 'qr'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
   const [legalConsent, setLegalConsent] = useState(false);
 
   // Success modal state
@@ -245,25 +245,6 @@ export default function CheckoutScreen() {
         const razorpayOrder = await createOrderRes.json();
 
         setPlacingOrder(false);
-
-        if (paymentMethod === 'qr') {
-          // Navigate to the QR payment screen
-          router.push({
-            pathname: '/pharmacy/payment-qr',
-            params: {
-              amount: String(activeTotal),
-              email: userEmail,
-              subtotal: String(baseSubtotal),
-              discount: String(baseDiscount),
-              gst: String(baseGst),
-              deliveryFee: String(activeDeliveryFee),
-              shippingAddress: fullAddr,
-              latitude: String(address.latitude ?? ''),
-              longitude: String(address.longitude ?? ''),
-            },
-          });
-          return;
-        }
 
         // Navigate to the payment WebView screen with all needed params
         router.push({
@@ -512,14 +493,6 @@ export default function CheckoutScreen() {
               <Ionicons name="card" size={24} color={paymentMethod === 'razorpay' ? Palette.secondary : Palette.textMuted} />
               <Text style={styles.speedName}>Online</Text>
               <Text style={styles.speedSub}>UPI & Cards</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.speedBox, paymentMethod === 'qr' && styles.speedBoxSel]}
-              onPress={() => setPaymentMethod('qr')}
-            >
-              <Ionicons name="qr-code" size={24} color={paymentMethod === 'qr' ? Palette.secondary : Palette.textMuted} />
-              <Text style={styles.speedName}>QR Code</Text>
-              <Text style={styles.speedSub}>Scan & Pay</Text>
             </TouchableOpacity>
           </View>
         </View>

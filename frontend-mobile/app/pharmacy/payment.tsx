@@ -85,7 +85,7 @@ export default function PaymentScreen() {
         <p>Loading Razorpay (UPI Forced)...</p>
         <script>
             var options = {
-                "key": "rzp_test_T0U3c5oC3H4Vut",
+                "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_T1PJqNDePfxDYz'}",
                 "amount": ${Math.round(parseFloat(amount ?? '0') * 100)},
                 "currency": "INR",
                 "name": "AarogyaMitra",
