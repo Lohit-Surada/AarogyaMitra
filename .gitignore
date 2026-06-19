@@ -45,3 +45,7 @@ app-example
 # IDE folders
 .idea/
 .vscode/
+
+# H2 database (auto-generated, changes every run)
+backend/data/*.mv.db
+backend/data/*.trace.db
