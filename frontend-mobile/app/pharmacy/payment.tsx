@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -66,70 +67,97 @@ export default function PaymentScreen() {
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const processingRef = useRef(false);
 
-  // ── Build Local Checkout HTML (Full Payment Methods: UPI, QR, Cards, Net Banking, Wallets) ─
+  // ── Razorpay Checkout HTML ────────────────────────────────────────────────
+  // Uses standard `method` object — works on ALL Razorpay accounts (no dashboard feature flag needed).
+  // config.display blocks is a premium Smart Checkout feature and requires special enablement.
   const customHtml = `
     <!DOCTYPE html>
     <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
         <style>
-            body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f8fafc; }
-            .loader { border: 4px solid #f3f3f3; border-top: 4px solid #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                display: flex; flex-direction: column;
+                justify-content: center; align-items: center;
+                height: 100vh; background: #f0fdf4;
+            }
+            .card {
+                background: #fff; border-radius: 20px; padding: 32px 24px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+                display: flex; flex-direction: column; align-items: center; gap: 16px;
+                max-width: 320px; width: 90%;
+            }
+            .logo { font-size: 32px; }
+            h2 { color: #065f46; font-size: 18px; font-weight: 700; text-align: center; }
+            .amount { font-size: 28px; font-weight: 800; color: #059669; }
+            .loader {
+                border: 4px solid #d1fae5; border-top: 4px solid #10b981;
+                border-radius: 50%; width: 36px; height: 36px;
+                animation: spin 0.8s linear infinite;
+            }
             @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-            p { color: #64748b; margin-top: 20px; font-size: 16px; font-weight: 600; }
+            p { color: #64748b; font-size: 13px; text-align: center; }
         </style>
     </head>
     <body>
-        <div class="loader"></div>
-        <p>Opening Secure Checkout...</p>
+        <div class="card">
+            <div class="logo">🏥</div>
+            <h2>AarogyaMitra Pharmacy</h2>
+            <div class="amount">₹${parseFloat(amount ?? '0').toFixed(2)}</div>
+            <div class="loader"></div>
+            <p>Opening Razorpay Secure Checkout...</p>
+        </div>
         <script>
             var options = {
                 "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_T1PJqNDePfxDYz'}",
                 "amount": ${Math.round(parseFloat(amount ?? '0') * 100)},
                 "currency": "INR",
                 "name": "AarogyaMitra Pharmacy",
-                "description": "Medicine Order Checkout",
+                "description": "Medicine Order",
                 "order_id": "${razorpayOrderId ?? ''}",
                 "prefill": {
                     "email": "${email ?? ''}",
                     "contact": ""
                 },
-                "theme": { "color": "#10b981" },
-                "config": {
-                    "display": {
-                        "blocks": {
-                            "upi": {
-                                "name": "UPI",
-                                "instruments": [
-                                    { "method": "upi", "flows": ["collect", "intent", "qr"] }
-                                ]
-                            },
-                            "other": {
-                                "name": "Other Methods",
-                                "instruments": [
-                                    { "method": "card" },
-                                    { "method": "netbanking" },
-                                    { "method": "wallet" }
-                                ]
-                            }
-                        },
-                        "sequence": ["block.upi", "block.other"],
-                        "preferences": { "show_default_blocks": false }
-                    }
+                "method": {
+                    "upi": true,
+                    "card": true,
+                    "netbanking": true,
+                    "wallet": true,
+                    "emi": false,
+                    "paylater": false
                 },
-                "handler": function (response) {
-                    var redirectUrl = "http://dummy/api/payment/callback?razorpayPaymentId=" + encodeURIComponent(response.razorpay_payment_id) + "&razorpaySignature=" + encodeURIComponent(response.razorpay_signature);
-                    window.location.href = redirectUrl;
+                "theme": {
+                    "color": "#10b981",
+                    "hide_topbar": false
                 },
                 "modal": {
+                    "backdropclose": false,
+                    "escape": false,
+                    "handleback": true,
+                    "confirm_close": true,
                     "ondismiss": function() {
                         window.location.href = "http://dummy/api/payment/cancel-page";
                     }
+                },
+                "handler": function(response) {
+                    var url = "http://dummy/api/payment/callback"
+                        + "?razorpayPaymentId=" + encodeURIComponent(response.razorpay_payment_id)
+                        + "&razorpaySignature=" + encodeURIComponent(response.razorpay_signature);
+                    window.location.href = url;
                 }
             };
             var rzp = new Razorpay(options);
-            window.onload = function() { rzp.open(); };
+            rzp.on('payment.failed', function(resp) {
+                console.error('Payment failed:', JSON.stringify(resp.error));
+                window.location.href = "http://dummy/api/payment/cancel-page";
+            });
+            window.onload = function() {
+                setTimeout(function() { rzp.open(); }, 300);
+            };
         </script>
     </body>
     </html>
@@ -164,6 +192,26 @@ export default function PaymentScreen() {
       return false; // block WebView
     }
 
+    // Handle UPI & App Intents (GPay, PhonePe, Paytm, etc)
+    if (
+      url.startsWith('upi://') ||
+      url.startsWith('gpay://') ||
+      url.startsWith('phonepe://') ||
+      url.startsWith('paytm://') ||
+      url.startsWith('intent://')
+    ) {
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            Linking.openURL(url);
+          } else {
+            Alert.alert('App Not Installed', 'The requested payment app is not installed on your device.');
+          }
+        })
+        .catch((err) => console.error('Error checking Linking support for URL:', err));
+      return false; // Block WebView from trying to load the intent URL as a web page
+    }
+
     return true; // allow all other URLs
   };
 
@@ -183,6 +231,26 @@ export default function PaymentScreen() {
 
     if (url.includes('/api/payment/callback') && !processingRef.current) {
       handlePaymentSuccess(url);
+      return;
+    }
+
+    // Handle intent URLs here as fallback for Android
+    if (
+      url.startsWith('upi://') ||
+      url.startsWith('gpay://') ||
+      url.startsWith('phonepe://') ||
+      url.startsWith('paytm://') ||
+      url.startsWith('intent://')
+    ) {
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            Linking.openURL(url);
+          } else {
+            Alert.alert('App Not Installed', 'The requested payment app is not installed on your device.');
+          }
+        })
+        .catch((err) => console.error('Error checking Linking support for URL:', err));
     }
   };
 
