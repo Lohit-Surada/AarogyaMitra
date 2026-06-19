@@ -245,7 +245,25 @@ public class PaymentController {
             }
 
             // Payment is valid, let's place the order
-            List<CartItem> cartItems = pharmacyService.getCart(email);
+            List<CartItem> cartItems = new java.util.ArrayList<>(pharmacyService.getCart(email));
+            if (cartItems.isEmpty()) {
+                List<Map<String, Object>> payloadItems = (List<Map<String, Object>>) payload.get("orderItems");
+                if (payloadItems != null && !payloadItems.isEmpty()) {
+                    for (Map<String, Object> itemMap : payloadItems) {
+                        Map<String, Object> prodMap = (Map<String, Object>) itemMap.get("product");
+                        if (prodMap != null && prodMap.get("id") != null) {
+                            Long productId = Long.valueOf(prodMap.get("id").toString());
+                            int quantity = Integer.parseInt(itemMap.get("quantity").toString());
+                            java.util.Optional<com.aarogyamitra.backend.model.Product> pOpt = pharmacyService.getProductById(productId);
+                            if (pOpt.isPresent()) {
+                                CartItem ci = new CartItem(null, email, pOpt.get(), quantity);
+                                cartItems.add(ci);
+                            }
+                        }
+                    }
+                }
+            }
+
             if (cartItems.isEmpty()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
@@ -330,7 +348,24 @@ public class PaymentController {
             }
 
             // Payment received — place the order
-            List<CartItem> cartItems = pharmacyService.getCart(email);
+            List<CartItem> cartItems = new java.util.ArrayList<>(pharmacyService.getCart(email));
+            if (cartItems.isEmpty()) {
+                List<Map<String, Object>> payloadItems = (List<Map<String, Object>>) payload.get("orderItems");
+                if (payloadItems != null && !payloadItems.isEmpty()) {
+                    for (Map<String, Object> itemMap : payloadItems) {
+                        Map<String, Object> prodMap = (Map<String, Object>) itemMap.get("product");
+                        if (prodMap != null && prodMap.get("id") != null) {
+                            Long productId = Long.valueOf(prodMap.get("id").toString());
+                            int quantity = Integer.parseInt(itemMap.get("quantity").toString());
+                            java.util.Optional<com.aarogyamitra.backend.model.Product> pOpt = pharmacyService.getProductById(productId);
+                            if (pOpt.isPresent()) {
+                                CartItem ci = new CartItem(null, email, pOpt.get(), quantity);
+                                cartItems.add(ci);
+                            }
+                        }
+                    }
+                }
+            }
 
             Order orderRequest = new Order();
             orderRequest.setPaymentMethod("RAZORPAY_QR");
