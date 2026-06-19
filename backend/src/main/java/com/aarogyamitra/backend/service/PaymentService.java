@@ -1,10 +1,8 @@
 package com.aarogyamitra.backend.service;
 
-import com.razorpay.Payment;
 import com.razorpay.QrCode;
 import com.razorpay.RazorpayClient;
 import com.razorpay.Utils;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;

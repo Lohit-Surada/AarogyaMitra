@@ -16,7 +16,6 @@ import java.util.List;
 public class MapsService {
 
     private static final String GOOGLE_MAPS_API_KEY = "AIzaSyAWjgA1WFrwi38-pDvR-DeWbAoAcfWHuAU";
-    private static final String GOOGLE_PLACES_API_BASE = "https://maps.googleapis.com/maps/api";
 
     /**
      * Get nearby hospitals
