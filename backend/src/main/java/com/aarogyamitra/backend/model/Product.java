@@ -22,6 +22,7 @@ public class Product {
         this.uses = uses;
         this.sideEffects = sideEffects;
         this.manufacturer = manufacturer;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

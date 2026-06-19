@@ -43,7 +43,7 @@ type Product = {
   imageUrl: string;
   ratings: number;
   manufacturer: string;
-
+  stock: number;
 };
 
 // ─── Skeleton card for loading placeholder ────────────────────────────────────

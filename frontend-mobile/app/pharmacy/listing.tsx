@@ -24,7 +24,7 @@ type Product = {
   imageUrl: string;
   ratings: number;
   manufacturer: string;
-
+  stock: number;
 };
 
 const SORT_OPTIONS = [
