@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.aarogyamitra.backend.model.Product;
+import com.aarogyamitra.backend.repository.ProductRepository;
+
 @RestController
 @RequestMapping("/api/payment")
 @CrossOrigin(origins = "*", allowedHeaders = "*")
@@ -22,13 +25,52 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PharmacyService pharmacyService;
+    private final ProductRepository productRepository;
 
     @Value("${razorpay.key.id}")
     private String keyId;
 
-    public PaymentController(PaymentService paymentService, PharmacyService pharmacyService) {
+    public PaymentController(PaymentService paymentService, PharmacyService pharmacyService, ProductRepository productRepository) {
         this.paymentService = paymentService;
         this.pharmacyService = pharmacyService;
+        this.productRepository = productRepository;
+    }
+
+    /**
+     * Seed a ₹1 test product — public endpoint (under /api/payment/**) — idempotent.
+     */
+    @GetMapping("/seed-test-product")
+    public ResponseEntity<Map<String, Object>> seedTestProduct() {
+        try {
+            java.util.Optional<Product> existing = productRepository.findAll().stream()
+                .filter(p -> "Payment Testing Product".equals(p.getName()))
+                .findFirst();
+            if (existing.isPresent()) {
+                Map<String, Object> r = new HashMap<>();
+                r.put("message", "Test product already exists");
+                r.put("product", existing.get());
+                return ResponseEntity.ok(r);
+            }
+            Product p = new Product();
+            p.setName("Payment Testing Product");
+            p.setDescription("A ₹1 product to validate the Razorpay Live payment flow. No GST.");
+            p.setCategory("Testing");
+            p.setPrice(1.0);
+            p.setStock(9999);
+            p.setInStock(true);
+            p.setRatings(5.0);
+            p.setReviewCount(0);
+            p.setImageUrl("https://img.freepik.com/premium-vector/medicine-bottle-pills-black-white-vector-illustration_530521-1250.jpg");
+            Product saved = productRepository.save(p);
+            Map<String, Object> r = new HashMap<>();
+            r.put("message", "Test product created successfully");
+            r.put("product", saved);
+            return ResponseEntity.ok(r);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
     }
 
     /**
