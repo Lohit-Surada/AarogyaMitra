@@ -15,7 +15,6 @@ import java.util.List;
 @Service
 public class MapsService {
 
-    private static final String GOOGLE_MAPS_API_KEY = "AIzaSyAWjgA1WFrwi38-pDvR-DeWbAoAcfWHuAU";
 
     /**
      * Get nearby hospitals
@@ -89,6 +88,7 @@ public class MapsService {
      * Fetch nearby places from Google Places API
      * Note: In production, consider caching and rate limiting
      */
+    @SuppressWarnings("unused")
     private List<NearbyPlacesResponse.PlaceDTO> fetchNearbyPlaces(
             Double latitude,
             Double longitude,
@@ -108,6 +108,7 @@ public class MapsService {
     /**
      * Search places by keyword
      */
+    @SuppressWarnings("unused")
     private List<NearbyPlacesResponse.PlaceDTO> searchPlacesByKeyword(
             Double latitude,
             Double longitude,
