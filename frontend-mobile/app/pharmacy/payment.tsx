@@ -112,7 +112,7 @@ export default function PaymentScreen() {
         </div>
         <script>
             var options = {
-                "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_T1PJqNDePfxDYz'}",
+                "key": "${process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_T0U3c5oC3H4Vut'}",
                 "amount": ${Math.round(parseFloat(amount ?? '0') * 100)},
                 "currency": "INR",
                 "name": "AarogyaMitra Pharmacy",

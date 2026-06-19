@@ -2,6 +2,7 @@ package com.aarogyamitra.backend.service;
 
 import com.aarogyamitra.backend.model.*;
 import com.aarogyamitra.backend.repository.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,8 +26,11 @@ public class PharmacyService {
     private final OrderRepository orderRepository;
     private final FirebaseBroadcastService firebaseBroadcastService;
 
-    private static final String RZP_KEY_ID = "rzp_live_T1PJqNDePfxDYz";
-    private static final String RZP_KEY_SECRET = "yjnF2Lrtmu2nyBTn2egz04Ho";
+    @Value("${razorpay.key.id}")
+    private String RZP_KEY_ID;
+
+    @Value("${razorpay.key.secret}")
+    private String RZP_KEY_SECRET;
 
     public PharmacyService(ProductRepository productRepository,
                            CartItemRepository cartItemRepository,
