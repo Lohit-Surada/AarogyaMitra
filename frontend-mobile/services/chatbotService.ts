@@ -24,13 +24,20 @@ export async function sendChatMessage(
   history: Message[]
 ): Promise<string> {
   try {
+    // Inject a strict boundary instruction into the payload to force the AI to refuse non-medical topics
+    const strictInstruction = `[SYSTEM INSTRUCTION: You are an AI Medical Assistant. You MUST strictly evaluate the following user query. If the query is about cars, bikes, technology, sports, coding, or ANY topic not related to health, medicine, diet, or biology, you MUST politely refuse to answer and state that you only answer health-related questions. Do NOT answer non-medical questions under any circumstance.]\n\nUser Query: ${userMessage}`;
+
     // Calling the Python Chatbot microservice directly to bypass Spring Security 403 error
+    // Note: Python backend expects "sender" and "text" for history!
     const res = await fetch('https://aarogyamitra-14.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: userMessage,
-        history: history.map(m => ({ role: m.role, content: m.content })),
+        message: strictInstruction,
+        history: history.map(m => ({ 
+          sender: m.role, 
+          text: m.content 
+        })),
       }),
     });
 

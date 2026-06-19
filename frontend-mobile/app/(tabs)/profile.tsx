@@ -7,12 +7,15 @@ import { signOut } from 'firebase/auth';
 
 import { ThemedText } from '@/components/themed-text';
 import { PremiumCard } from '@/components/ui/PremiumCard';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { Palette, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { useTranslation } from 'react-i18next';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
   
   const handleLogout = async () => {
     try {
@@ -36,6 +39,10 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Palette.background }}>
       <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.topActions}>
+          <LanguageToggle />
+        </View>
+
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={40} color={Palette.primary} />
@@ -68,6 +75,11 @@ const styles = StyleSheet.create({
   container: {
     padding: Spacing.md,
     paddingTop: Spacing.xl,
+  },
+  topActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: Spacing.md,
   },
   header: {
     alignItems: 'center',

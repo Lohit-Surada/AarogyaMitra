@@ -18,9 +18,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 import { SYMPTOMS_LIST } from '@/constants/symptoms';
 import { sendChatMessage } from '@/services/chatbotService';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 
 export default function DiseasePredictionScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -76,7 +79,8 @@ export default function DiseasePredictionScreen() {
       setTipsLoading(true);
       setTips(null);
       try {
-        const prompt = `Give exactly 3 main tips to cure or manage the disease: ${data.disease}. Keep the total response strictly under 10 lines. Do NOT ask any follow-up questions at the end. Do NOT add any conversational text.`;
+        const langStr = i18n.language === 'te' ? 'Telugu' : 'English';
+        const prompt = `Give exactly 3 main tips to cure or manage the disease: ${data.disease}. Keep the total response strictly under 10 lines. Do NOT ask any follow-up questions at the end. Do NOT add any conversational text. Please provide your entire response in ${langStr}.`;
         const reply = await sendChatMessage(prompt, []);
         setTips(reply);
       } catch (err) {
@@ -132,8 +136,8 @@ export default function DiseasePredictionScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Palette.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>AI Symptom Checker</Text>
-        <View style={{ width: 32 }} />
+        <Text style={styles.headerTitle}>{t('aiSymptomChecker')}</Text>
+        <LanguageToggle />
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -144,7 +148,7 @@ export default function DiseasePredictionScreen() {
                 <Ionicons name="pulse" size={20} color={Palette.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Describe Symptoms</Text>
+                <Text style={styles.cardTitle}>{t('describeSymptoms')}</Text>
                 <Text style={styles.cardSub}>Select your symptoms from the list to receive an AI-powered preliminary analysis.</Text>
               </View>
             </View>
@@ -155,18 +159,20 @@ export default function DiseasePredictionScreen() {
               disabled={loading}
             >
               <Text style={styles.dropdownBtnTxt}>
-                Select Symptoms
+                {t('selectSymptoms')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={Palette.textMuted} />
             </TouchableOpacity>
 
             {selectedSymptoms.length > 0 && (
               <View style={styles.selectedSymptomsContainer}>
-                <Text style={styles.selectedSymptomsTitle}>Selected Symptoms:</Text>
+                <Text style={styles.selectedSymptomsTitle}>{t('selectedSymptoms')}</Text>
                 <View style={styles.selectedSymptomsList}>
                   {selectedSymptoms.map(sym => (
                     <View key={sym} style={styles.selectedChip}>
-                      <Text style={styles.selectedChipTxt}>{sym.replace(/_/g, ' ')}</Text>
+                      <Text style={styles.selectedChipTxt}>
+                        {t(`symptoms.${sym}`, { defaultValue: sym.replace(/_/g, ' ') })}
+                      </Text>
                       <TouchableOpacity onPress={() => removeSymptom(sym)}>
                         <Ionicons name="close-circle" size={16} color="#64748B" />
                       </TouchableOpacity>
@@ -180,25 +186,27 @@ export default function DiseasePredictionScreen() {
               <Text style={styles.errorTxt}>{errorMsg}</Text>
             ) : null}
 
-            <Text style={styles.quickTitle}>Common Symptoms</Text>
+            <Text style={styles.quickTitle}>{t('commonSymptoms')}</Text>
             <View style={styles.quickRow}>
               {QUICK_SYMPTOMS.map(sym => (
                 <TouchableOpacity key={sym} style={styles.quickChip} onPress={() => addQuickSymptom(sym)}>
-                  <Text style={styles.quickChipTxt}>+ {sym.replace(/_/g, ' ')}</Text>
+                  <Text style={styles.quickChipTxt}>
+                    + {t(`symptoms.${sym}`, { defaultValue: sym.replace(/_/g, ' ') })}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.clearBtn} onPress={handleClear} disabled={loading}>
-                <Text style={styles.clearBtnTxt}>Clear</Text>
+                <Text style={styles.clearBtnTxt}>{t('clear')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.analyzeBtn} onPress={handlePredict} disabled={loading || selectedSymptoms.length === 0}>
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.analyzeBtnTxt}>Analyze Now</Text>
+                    <Text style={styles.analyzeBtnTxt}>{t('analyzeNow')}</Text>
                     <Ionicons name="sparkles" size={16} color="#fff" />
                   </>
                 )}
@@ -212,17 +220,19 @@ export default function DiseasePredictionScreen() {
                 <View style={styles.resultIconBox}>
                   <Ionicons name="medkit" size={24} color="#059669" />
                 </View>
-                <Text style={styles.resultTitle}>Analysis Complete</Text>
+                <Text style={styles.resultTitle}>{t('analysisComplete') || 'Analysis Complete'}</Text>
               </View>
 
               <View style={styles.resultBody}>
-                <Text style={styles.resultLbl}>Possible Condition</Text>
-                <Text style={styles.resultDisease}>{prediction.disease || 'Unknown'}</Text>
+                <Text style={styles.resultLbl}>{t('possibleCondition') || 'Possible Condition'}</Text>
+                <Text style={styles.resultDisease}>
+                  {prediction.disease ? t(`diseases.${prediction.disease}`, { defaultValue: prediction.disease }) : 'Unknown'}
+                </Text>
 
                 {prediction.confidence && (
                   <View style={{ marginTop: 16 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={styles.resultLbl}>AI Confidence</Text>
+                      <Text style={styles.resultLbl}>{t('aiConfidence') || 'AI Confidence'}</Text>
                       <Text style={styles.confVal}>{(prediction.confidence * 100).toFixed(1)}%</Text>
                     </View>
                     <View style={styles.track}>
@@ -245,12 +255,12 @@ export default function DiseasePredictionScreen() {
             <View style={styles.blogCard}>
               <View style={styles.blogHeader}>
                 <Ionicons name="leaf" size={22} color="#16A34A" />
-                <Text style={styles.blogTitle}>Cure & Management Tips</Text>
+                <Text style={styles.blogTitle}>{t('cureAndManagementTips')}</Text>
               </View>
               {tipsLoading ? (
                 <View style={styles.tipsLoadingContainer}>
                   <ActivityIndicator color={Palette.primary} size="small" />
-                  <Text style={styles.tipsLoadingTxt}>Generating tips with AI...</Text>
+                  <Text style={styles.tipsLoadingTxt}>{t('generatingTips')}</Text>
                 </View>
               ) : (
                 <Text style={styles.blogContent}>{tips}</Text>
@@ -261,7 +271,7 @@ export default function DiseasePredictionScreen() {
           <View style={styles.warningBox}>
             <Ionicons name="warning" size={20} color="#B45309" />
             <Text style={styles.warningTxt}>
-              This AI analysis is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment. Always consult a doctor for health concerns.
+              {t('warningMsg') || 'This AI analysis is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment. Always consult a doctor for health concerns.'}
             </Text>
           </View>
         </Animated.View>
@@ -271,26 +281,31 @@ export default function DiseasePredictionScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Symptoms</Text>
+              <Text style={styles.modalTitle}>{t('selectSymptoms')}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color={Palette.text} />
               </TouchableOpacity>
             </View>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search symptoms..."
+              placeholder={t('searchSymptoms')}
               placeholderTextColor={Palette.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             <FlatList
-              data={SYMPTOMS_LIST.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase()))}
+              data={SYMPTOMS_LIST.filter(s => {
+                const searchStr = t(`symptoms.${s}`, { defaultValue: s.replace(/_/g, ' ') }).toLowerCase();
+                return searchStr.includes(searchQuery.toLowerCase()) || s.toLowerCase().includes(searchQuery.toLowerCase());
+              })}
               keyExtractor={(item) => item}
               renderItem={({ item }) => {
                 const isSelected = selectedSymptoms.includes(item);
                 return (
                   <TouchableOpacity style={styles.symptomItem} onPress={() => toggleSymptom(item)}>
-                    <Text style={styles.symptomItemText}>{item.replace(/_/g, ' ')}</Text>
+                    <Text style={styles.symptomItemText}>
+                      {t(`symptoms.${item}`, { defaultValue: item.replace(/_/g, ' ') })}
+                    </Text>
                     <Ionicons 
                       name={isSelected ? "checkbox" : "square-outline"} 
                       size={24} 
@@ -303,7 +318,7 @@ export default function DiseasePredictionScreen() {
               keyboardShouldPersistTaps="handled"
             />
             <TouchableOpacity style={styles.doneBtn} onPress={() => setModalVisible(false)}>
-              <Text style={styles.doneBtnTxt}>Done</Text>
+              <Text style={styles.doneBtnTxt}>{t('done')}</Text>
             </TouchableOpacity>
           </View>
         </View>
