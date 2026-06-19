@@ -33,7 +33,7 @@ type Product = {
   sideEffects: string;
   manufacturer: string;
   stock: number;
-  inStock: boolean;
+
 };
 
 export default function ProductDetails() {
@@ -97,7 +97,7 @@ export default function ProductDetails() {
 
   const handleAddToCart = async (checkoutImmediately = false) => {
     if (!product) return;
-    if (!product.inStock) {
+    if (product.stock <= 0) {
       Alert.alert('Out of Stock', 'This product is currently unavailable.');
       return;
     }
@@ -110,7 +110,7 @@ export default function ProductDetails() {
         price: product.price,
         category: product.category,
         imageUrl: product.imageUrl,
-        inStock: product.inStock,
+
         stock: product.stock,
       });
 
@@ -178,11 +178,7 @@ export default function ProductDetails() {
             <View style={styles.catBadge}>
               <Text style={styles.catText}>{product.category}</Text>
             </View>
-            <View style={[styles.stockBadge, !product.inStock && { backgroundColor: '#FEE2E2' }]}>
-              <Text style={[styles.stockText, !product.inStock && { color: Palette.danger }]}>
-                {product.inStock ? `In Stock: ${product.stock}` : 'Out of Stock'}
-              </Text>
-            </View>
+
           </View>
 
           <Text style={styles.prodName}>{product.name}</Text>
@@ -308,8 +304,7 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   catBadge: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.sm },
   catText: { fontSize: 11, fontWeight: '700', color: '#047857', textTransform: 'uppercase' },
-  stockBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.sm },
-  stockText: { fontSize: 11, fontWeight: '700', color: '#15803D' },
+
   
   prodName: { fontSize: 22, fontWeight: '800', color: Palette.text, lineHeight: 28 },
   mfrText: { fontSize: 13, color: Palette.textMuted, marginTop: 4 },

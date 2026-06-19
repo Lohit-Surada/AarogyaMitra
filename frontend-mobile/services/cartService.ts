@@ -11,7 +11,7 @@ export type GuestProduct = {
   price: number;
   category: string;
   imageUrl: string;
-  inStock: boolean;
+
   stock: number;
 };
 

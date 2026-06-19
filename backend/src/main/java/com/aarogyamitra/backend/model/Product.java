@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class Product {
-    public Product(Long id, String name, String description, Double price, String category, Integer stock, String imageUrl, Double ratings, Integer reviewCount, String uses, String sideEffects, String manufacturer, Boolean inStock) {
+    public Product(Long id, String name, String description, Double price, String category, Integer stock, String imageUrl, Double ratings, Integer reviewCount, String uses, String sideEffects, String manufacturer) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -22,8 +22,7 @@ public class Product {
         this.uses = uses;
         this.sideEffects = sideEffects;
         this.manufacturer = manufacturer;
-        this.inStock = inStock;
-    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -53,5 +52,4 @@ public class Product {
     private String sideEffects;
     
     private String manufacturer;
-    private Boolean inStock;
 }

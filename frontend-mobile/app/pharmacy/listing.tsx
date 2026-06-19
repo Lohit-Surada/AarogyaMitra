@@ -24,7 +24,7 @@ type Product = {
   imageUrl: string;
   ratings: number;
   manufacturer: string;
-  inStock: boolean;
+
 };
 
 const SORT_OPTIONS = [
@@ -40,7 +40,7 @@ function ProductCard({ item, onPress }: { item: Product; onPress: () => void }) 
       onPress={onPress}
     >
       <Image source={{ uri: item.imageUrl }} style={styles.cardImage} />
-      {!item.inStock && (
+      {item.stock <= 0 && (
         <View style={styles.outBadge}>
           <Text style={styles.outBadgeText}>OUT OF STOCK</Text>
         </View>
@@ -73,7 +73,7 @@ export default function ProductListing() {
   const [sortBy, setSortBy] = useState('id');
   const [sortDir, setSortDir] = useState('asc');
   const [showSort, setShowSort] = useState(false);
-  const [inStockOnly, setInStockOnly] = useState<boolean | null>(null);
+
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -88,7 +88,7 @@ export default function ProductListing() {
         );
         if (category) url += `&category=${encodeURIComponent(category)}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
-        if (inStockOnly) url += `&inStock=true`;
+
 
         const response = await fetch(url);
         if (!response.ok) throw new Error('Network error');
@@ -106,7 +106,7 @@ export default function ProductListing() {
         setLoadingMore(false);
       }
     },
-    [category, search, inStockOnly, sortBy, sortDir]
+    [category, search, sortBy, sortDir]
   );
 
   useEffect(() => {
@@ -174,20 +174,6 @@ export default function ProductListing() {
           <Ionicons name="funnel-outline" size={14} color={Palette.primary} />
           <Text style={styles.filterChipText}>{activeSort}</Text>
           <Ionicons name="chevron-down" size={12} color={Palette.primary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterChip, inStockOnly && styles.filterChipActive]}
-          onPress={() => setInStockOnly(prev => (prev ? null : true))}
-        >
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={14}
-            color={inStockOnly ? '#fff' : Palette.primary}
-          />
-          <Text style={[styles.filterChipText, inStockOnly && styles.filterChipTextActive]}>
-            In Stock
-          </Text>
         </TouchableOpacity>
       </View>
 

@@ -47,13 +47,13 @@ public class PharmacyService {
     // --- PRODUCTS ---
 
     public Page<Product> getProducts(String category, String search, Double minPrice, Double maxPrice,
-                                    Boolean inStock, Double minRating, int page, int size, String sortBy, String sortDir) {
+                                    Double minRating, int page, int size, String sortBy, String sortDir) {
         Sort sort = Sort.by(sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, sortBy);
         PageRequest pageable = PageRequest.of(page, size, sort);
         return productRepository.filterProducts(
                 (category == null || category.trim().isEmpty()) ? null : category,
                 (search == null || search.trim().isEmpty()) ? null : search,
-                minPrice, maxPrice, inStock, minRating, pageable);
+                minPrice, maxPrice, minRating, pageable);
     }
 
     public Optional<Product> getProductById(Long id) {
@@ -182,9 +182,6 @@ public class PharmacyService {
             Product prod = ci.getProduct();
             int newStock = Math.max(0, prod.getStock() - ci.getQuantity());
             prod.setStock(newStock);
-            if (newStock == 0) {
-                prod.setInStock(false);
-            }
             productRepository.save(prod);
             firebaseBroadcastService.broadcastStockUpdate(prod.getId(), newStock);
         }
@@ -212,7 +209,6 @@ public class PharmacyService {
             Product prod = oi.getProduct();
             int newStock = prod.getStock() + oi.getQuantity();
             prod.setStock(newStock);
-            prod.setInStock(true);
             productRepository.save(prod);
             firebaseBroadcastService.broadcastStockUpdate(prod.getId(), newStock);
         }

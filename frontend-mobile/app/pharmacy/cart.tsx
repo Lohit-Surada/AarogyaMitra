@@ -120,7 +120,7 @@ export default function CartScreen() {
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items to checkout.');
-    const outOfStock = cartItems.filter(item => !item.product.inStock);
+    const outOfStock = cartItems.filter(item => item.product.stock <= 0);
     if (outOfStock.length > 0) return Alert.alert('Out of Stock', 'Remove unavailable items to proceed.');
 
     router.push({
@@ -148,7 +148,7 @@ export default function CartScreen() {
         
         <Text style={styles.itemCat}>{item.product.category}</Text>
         
-        {!item.product.inStock && (
+        {item.product.stock <= 0 && (
           <Text style={styles.outOfStockTxt}>Out of Stock</Text>
         )}
 

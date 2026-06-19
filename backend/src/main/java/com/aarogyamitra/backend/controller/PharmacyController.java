@@ -28,14 +28,14 @@ public class PharmacyController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Boolean inStock,
+
             @RequestParam(required = false) Double minRating,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDir) {
         return ResponseEntity.ok(pharmacyService.getProducts(
-                category, search, minPrice, maxPrice, inStock, minRating, page, size, sortBy, sortDir));
+                category, search, minPrice, maxPrice, minRating, page, size, sortBy, sortDir));
     }
 
     @GetMapping("/products/{id}")
@@ -234,7 +234,7 @@ public class PharmacyController {
         p.setCategory("Testing");
         p.setPrice(1.0);
         p.setStock(9999);
-        p.setInStock(true);
+
         p.setRatings(5.0);
         p.setReviewCount(0);
         p.setImageUrl("https://img.freepik.com/premium-vector/medicine-bottle-pills-black-white-vector-illustration_530521-1250.jpg");

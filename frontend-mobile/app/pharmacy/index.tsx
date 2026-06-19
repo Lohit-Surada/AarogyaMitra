@@ -43,7 +43,7 @@ type Product = {
   imageUrl: string;
   ratings: number;
   manufacturer: string;
-  inStock: boolean;
+
 };
 
 // ─── Skeleton card for loading placeholder ────────────────────────────────────
@@ -68,12 +68,12 @@ function ProductCard({ item, onPress }: { item: Product; onPress: () => void }) 
       onPress={onPress}
     >
       <Image source={{ uri: item.imageUrl }} style={styles.productImage} />
-      {!item.inStock && (
+      {item.stock <= 0 && (
         <View style={styles.outOfStockBadge}>
           <Text style={styles.outOfStockText}>OUT OF STOCK</Text>
         </View>
       )}
-      {item.ratings >= 4.5 && item.inStock && (
+      {item.ratings >= 4.5 && item.stock > 0 && (
         <View style={styles.topBadge}>
           <Text style={styles.topBadgeText}>⭐ Top Rated</Text>
         </View>
@@ -154,7 +154,7 @@ export default function PharmacyHome() {
         setFeatured(prev => prev.map(p => {
           if (val[p.id] && val[p.id].stock !== undefined) {
             const newStock = val[p.id].stock;
-            return { ...p, stock: newStock, inStock: newStock > 0 };
+            return { ...p, stock: newStock };
           }
           return p;
         }));
@@ -162,7 +162,7 @@ export default function PharmacyHome() {
         setRecommended(prev => prev.map(p => {
           if (val[p.id] && val[p.id].stock !== undefined) {
             const newStock = val[p.id].stock;
-            return { ...p, stock: newStock, inStock: newStock > 0 };
+            return { ...p, stock: newStock };
           }
           return p;
         }));

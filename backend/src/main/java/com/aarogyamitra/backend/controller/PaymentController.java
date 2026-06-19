@@ -57,7 +57,7 @@ public class PaymentController {
             p.setCategory("Testing");
             p.setPrice(1.0);
             p.setStock(9999);
-            p.setInStock(true);
+
             p.setRatings(5.0);
             p.setReviewCount(0);
             p.setImageUrl("https://img.freepik.com/premium-vector/medicine-bottle-pills-black-white-vector-illustration_530521-1250.jpg");
