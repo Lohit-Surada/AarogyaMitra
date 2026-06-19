@@ -15,7 +15,7 @@ import {
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyAWjgA1WFrwi38-pDvR-DeWbAoAcfWHuAU';
 const GOOGLE_PLACES_API_BASE = 'https://maps.googleapis.com/maps/api';
-const BACKEND_URL = 'https://aarogyamitra-4.onrender.com'; // Update with your backend URL
+const BACKEND_URL = 'https://aarogyamitra-15.onrender.com';
 
 const FALLBACK_SPEEDS_KMH: Record<TravelMode, number> = {
   walking: 5,

@@ -86,6 +86,10 @@ export default function CartScreen() {
       setAppliedCoupon('SUPP500');
       setDiscountPercentage(0);
       Alert.alert('Coupon Applied', 'Free delivery applied!');
+    } else if (code === 'TEST1') {
+      setAppliedCoupon('TEST1');
+      setDiscountPercentage(0);
+      Alert.alert('Test Mode', 'Total set to exactly ₹1.00 for payment testing!');
     } else {
       Alert.alert('Invalid Coupon', 'This coupon code does not exist.');
     }
@@ -98,12 +102,20 @@ export default function CartScreen() {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const discount = (subtotal * discountPercentage) / 100;
+  let discount = (subtotal * discountPercentage) / 100;
   
   let deliveryFee = 50;
-  if (subtotal > 500 || appliedCoupon === 'SUPP500' || subtotal === 0) deliveryFee = 0;
+  if (subtotal > 500 || appliedCoupon === 'SUPP500' || subtotal === 0 || appliedCoupon === 'TEST1') deliveryFee = 0;
 
-  const gst = (subtotal - discount) * 0.12;
+  let gst = (subtotal - discount) * 0.12;
+  
+  // If TEST1 is applied, force the total to be exactly 1, and offset it using the discount
+  if (appliedCoupon === 'TEST1' && subtotal > 0) {
+    gst = 0;
+    deliveryFee = 0;
+    discount = subtotal - 1; 
+  }
+
   const total = subtotal - discount + deliveryFee + gst;
 
   const handleCheckout = () => {

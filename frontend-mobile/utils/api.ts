@@ -4,8 +4,8 @@ import { auth } from '../lib/firebase';
 import { Platform } from 'react-native';
 
 export function getBackendUrl(path: string): string {
-  // Pointing to your deployed cloud backend as requested!
-  return `https://aarogyamitra-4.onrender.com${path}`;
+  // Updated to the backend deployment with Razorpay keys configured
+  return `https://aarogyamitra-15.onrender.com${path}`;
 }
 
 export async function authenticatedFetch(path: string, options: RequestInit = {}): Promise<Response> {
