@@ -3,8 +3,9 @@
  * Handles AI responses and logs sessions to Firebase RTDB.
  */
 
-import { getBackendUrl } from '@/utils/api';
+import { getBackendUrl, authenticatedFetch } from '@/utils/api';
 import { logChatSession, sendNotification, logEvent, ChatMessage } from './rtdbService';
+import { auth } from '@/lib/firebase';
 
 export type ChatRole = 'user' | 'assistant';
 
@@ -23,7 +24,8 @@ export async function sendChatMessage(
   history: Message[]
 ): Promise<string> {
   try {
-    const res = await fetch(getBackendUrl('/api/chatbot/chat'), {
+    // Calling the Python Chatbot microservice directly to bypass Spring Security 403 error
+    const res = await fetch('https://aarogyamitra-14.onrender.com/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

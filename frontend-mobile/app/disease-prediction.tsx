@@ -10,17 +10,27 @@ import {
   SafeAreaView,
   TextInput,
   Animated,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { SYMPTOMS_LIST } from '@/constants/symptoms';
+import { sendChatMessage } from '@/services/chatbotService';
 
 export default function DiseasePredictionScreen() {
   const router = useRouter();
-  const [symptoms, setSymptoms] = useState('');
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [tips, setTips] = useState<string | null>(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -29,8 +39,8 @@ export default function DiseasePredictionScreen() {
   }, []);
 
   const handlePredict = async () => {
-    if (!symptoms.trim()) {
-      setErrorMsg('Please enter at least one symptom.');
+    if (selectedSymptoms.length === 0) {
+      setErrorMsg('Please select at least one symptom.');
       return;
     }
     setErrorMsg('');
@@ -46,7 +56,7 @@ export default function DiseasePredictionScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          symptoms: symptoms.split(',').map(s => s.trim()).filter(s => s.length > 0),
+          symptoms: selectedSymptoms,
         }),
         signal: controller.signal,
       });
@@ -62,6 +72,18 @@ export default function DiseasePredictionScreen() {
       if (!data.success) throw new Error(data.error || 'Prediction failed');
 
       setPrediction(data);
+
+      setTipsLoading(true);
+      setTips(null);
+      try {
+        const prompt = `Give exactly 3 main tips to cure or manage the disease: ${data.disease}. Keep the total response strictly under 10 lines. Do NOT ask any follow-up questions at the end. Do NOT add any conversational text.`;
+        const reply = await sendChatMessage(prompt, []);
+        setTips(reply);
+      } catch (err) {
+        console.error('[DiseasePrediction] Error fetching tips:', err);
+      } finally {
+        setTipsLoading(false);
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setErrorMsg('Service is waking up. Please wait 30-60s and try again.');
@@ -74,21 +96,33 @@ export default function DiseasePredictionScreen() {
   };
 
   const handleClear = () => {
-    setSymptoms('');
+    setSelectedSymptoms([]);
     setPrediction(null);
     setErrorMsg('');
+    setTips(null);
   };
 
-  const QUICK_SYMPTOMS = ['Fever', 'Cough', 'Headache', 'Fatigue', 'Nausea'];
+  const QUICK_SYMPTOMS = ['fever', 'cough', 'headache', 'fatigue', 'nausea'];
 
   const addQuickSymptom = (sym: string) => {
-    setSymptoms(prev => {
-      const parts = prev.split(',').map(p => p.trim()).filter(p => p.length > 0);
-      if (!parts.includes(sym)) {
-        parts.push(sym);
-        return parts.join(', ');
+    setSelectedSymptoms(prev => {
+      if (!prev.includes(sym)) {
+        return [...prev, sym];
       }
       return prev;
+    });
+  };
+
+  const removeSymptom = (sym: string) => {
+    setSelectedSymptoms(prev => prev.filter(s => s !== sym));
+  };
+
+  const toggleSymptom = (sym: string) => {
+    setSelectedSymptoms(prev => {
+      if (prev.includes(sym)) {
+        return prev.filter(s => s !== sym);
+      }
+      return [...prev, sym];
     });
   };
 
@@ -111,21 +145,36 @@ export default function DiseasePredictionScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>Describe Symptoms</Text>
-                <Text style={styles.cardSub}>Enter your symptoms separated by commas to receive an AI-powered preliminary analysis.</Text>
+                <Text style={styles.cardSub}>Select your symptoms from the list to receive an AI-powered preliminary analysis.</Text>
               </View>
             </View>
 
-            <TextInput
-              style={[styles.input, errorMsg ? { borderColor: Palette.danger } : null]}
-              placeholder="e.g., fever, dry cough, body ache"
-              placeholderTextColor={Palette.textMuted}
-              value={symptoms}
-              onChangeText={setSymptoms}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              editable={!loading}
-            />
+            <TouchableOpacity 
+              style={[styles.dropdownBtn, errorMsg ? { borderColor: Palette.danger } : null]} 
+              onPress={() => setModalVisible(true)}
+              disabled={loading}
+            >
+              <Text style={styles.dropdownBtnTxt}>
+                Select Symptoms
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={Palette.textMuted} />
+            </TouchableOpacity>
+
+            {selectedSymptoms.length > 0 && (
+              <View style={styles.selectedSymptomsContainer}>
+                <Text style={styles.selectedSymptomsTitle}>Selected Symptoms:</Text>
+                <View style={styles.selectedSymptomsList}>
+                  {selectedSymptoms.map(sym => (
+                    <View key={sym} style={styles.selectedChip}>
+                      <Text style={styles.selectedChipTxt}>{sym.replace(/_/g, ' ')}</Text>
+                      <TouchableOpacity onPress={() => removeSymptom(sym)}>
+                        <Ionicons name="close-circle" size={16} color="#64748B" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             {errorMsg ? (
               <Text style={styles.errorTxt}>{errorMsg}</Text>
@@ -135,7 +184,7 @@ export default function DiseasePredictionScreen() {
             <View style={styles.quickRow}>
               {QUICK_SYMPTOMS.map(sym => (
                 <TouchableOpacity key={sym} style={styles.quickChip} onPress={() => addQuickSymptom(sym)}>
-                  <Text style={styles.quickChipTxt}>+ {sym}</Text>
+                  <Text style={styles.quickChipTxt}>+ {sym.replace(/_/g, ' ')}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -144,7 +193,7 @@ export default function DiseasePredictionScreen() {
               <TouchableOpacity style={styles.clearBtn} onPress={handleClear} disabled={loading}>
                 <Text style={styles.clearBtnTxt}>Clear</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.analyzeBtn} onPress={handlePredict} disabled={loading || !symptoms.trim()}>
+              <TouchableOpacity style={styles.analyzeBtn} onPress={handlePredict} disabled={loading || selectedSymptoms.length === 0}>
                 {loading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
@@ -192,6 +241,23 @@ export default function DiseasePredictionScreen() {
             </View>
           )}
 
+          {prediction && (tipsLoading || tips) && (
+            <View style={styles.blogCard}>
+              <View style={styles.blogHeader}>
+                <Ionicons name="leaf" size={22} color="#16A34A" />
+                <Text style={styles.blogTitle}>Cure & Management Tips</Text>
+              </View>
+              {tipsLoading ? (
+                <View style={styles.tipsLoadingContainer}>
+                  <ActivityIndicator color={Palette.primary} size="small" />
+                  <Text style={styles.tipsLoadingTxt}>Generating tips with AI...</Text>
+                </View>
+              ) : (
+                <Text style={styles.blogContent}>{tips}</Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.warningBox}>
             <Ionicons name="warning" size={20} color="#B45309" />
             <Text style={styles.warningTxt}>
@@ -200,6 +266,48 @@ export default function DiseasePredictionScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Symptoms</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Palette.text} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search symptoms..."
+              placeholderTextColor={Palette.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <FlatList
+              data={SYMPTOMS_LIST.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase()))}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const isSelected = selectedSymptoms.includes(item);
+                return (
+                  <TouchableOpacity style={styles.symptomItem} onPress={() => toggleSymptom(item)}>
+                    <Text style={styles.symptomItemText}>{item.replace(/_/g, ' ')}</Text>
+                    <Ionicons 
+                      name={isSelected ? "checkbox" : "square-outline"} 
+                      size={24} 
+                      color={isSelected ? Palette.primary : Palette.textMuted} 
+                    />
+                  </TouchableOpacity>
+                );
+              }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            />
+            <TouchableOpacity style={styles.doneBtn} onPress={() => setModalVisible(false)}>
+              <Text style={styles.doneBtnTxt}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -223,16 +331,21 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: '700', color: Palette.text },
   cardSub: { fontSize: 13, color: Palette.textMuted, marginTop: 4, lineHeight: 18 },
 
-  input: {
-    backgroundColor: '#F8FAFC', borderRadius: Radius.md, padding: 16, fontSize: 15,
-    color: Palette.text, borderWidth: 1, borderColor: Palette.border, minHeight: 120,
-  },
+  dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: Radius.md, padding: 16, borderWidth: 1, borderColor: Palette.border },
+  dropdownBtnTxt: { fontSize: 15, color: Palette.text },
+
+  selectedSymptomsContainer: { marginTop: 16 },
+  selectedSymptomsTitle: { fontSize: 13, fontWeight: '700', color: Palette.text, marginBottom: 8 },
+  selectedSymptomsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  selectedChip: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E2E8F0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.round, gap: 6 },
+  selectedChipTxt: { fontSize: 13, fontWeight: '600', color: '#334155', textTransform: 'capitalize' },
+
   errorTxt: { color: Palette.danger, fontSize: 12, marginTop: 8, fontWeight: '600' },
 
   quickTitle: { fontSize: 13, fontWeight: '700', color: Palette.text, marginTop: 16, marginBottom: 8 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   quickChip: { backgroundColor: '#F1F5F9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.round, borderWidth: 1, borderColor: '#E2E8F0' },
-  quickChipTxt: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  quickChipTxt: { fontSize: 12, fontWeight: '600', color: '#475569', textTransform: 'capitalize' },
 
   actionRow: { flexDirection: 'row', gap: 12 },
   clearBtn: { flex: 1, paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', backgroundColor: '#F1F5F9' },
@@ -256,6 +369,23 @@ const styles = StyleSheet.create({
   msgBox: { flexDirection: 'row', backgroundColor: '#E0F2FE', padding: 12, borderRadius: Radius.md, marginTop: 20, gap: 10 },
   msgTxt: { flex: 1, fontSize: 13, color: '#0369A1', lineHeight: 18 },
 
+  blogCard: { backgroundColor: '#fff', borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.md, borderWidth: 1, borderColor: Palette.border, ...Shadows.sm },
+  blogHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  blogTitle: { fontSize: 16, fontWeight: '700', color: Palette.text },
+  tipsLoadingContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  tipsLoadingTxt: { fontSize: 14, color: Palette.textMuted },
+  blogContent: { fontSize: 14, color: Palette.text, lineHeight: 22 },
+
   warningBox: { flexDirection: 'row', backgroundColor: '#FEF3C7', padding: Spacing.md, borderRadius: Radius.md, marginTop: Spacing.lg, gap: 12 },
   warningTxt: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, height: '80%', padding: Spacing.md },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Palette.text },
+  searchInput: { backgroundColor: '#F1F5F9', borderRadius: Radius.md, padding: 12, fontSize: 15, color: Palette.text, marginBottom: 12 },
+  symptomItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Palette.border },
+  symptomItemText: { fontSize: 16, color: Palette.text, textTransform: 'capitalize' },
+  doneBtn: { backgroundColor: Palette.primary, paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', marginTop: 16 },
+  doneBtnTxt: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });
