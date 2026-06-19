@@ -27,7 +27,7 @@ public class DataInitializer {
                     25.0, "Medicines", 500,
                     "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400",
                     4.7, 3280, "Reduces fever, headache & body ache", "Rare: skin rash, liver issues at overdose",
-                    "Sun Pharma", true),
+                    "Sun Pharma"),
 
                 new Product(null,
                     "Azithromycin 500mg (3 Tablets)",
@@ -35,7 +35,7 @@ public class DataInitializer {
                     89.5, "Medicines", 200,
                     "https://images.unsplash.com/photo-1550572017-edd951b55104?w=400",
                     4.5, 1120, "Bacterial infections, pneumonia, sinusitis", "Nausea, vomiting, diarrhoea",
-                    "Cipla", true),
+                    "Cipla"),
 
                 new Product(null,
                     "Cetirizine 10mg (10 Tablets)",
@@ -43,7 +43,7 @@ public class DataInitializer {
                     35.0, "Medicines", 800,
                     "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=400",
                     4.6, 2100, "Sneezing, runny nose, itchy eyes & skin", "Drowsiness, dry mouth",
-                    "Dr. Reddy's Labs", true),
+                    "Dr. Reddy's Labs"),
 
                 new Product(null,
                     "Metformin 500mg (30 Tablets)",
@@ -51,7 +51,7 @@ public class DataInitializer {
                     62.0, "Medicines", 350,
                     "https://images.unsplash.com/photo-1585435557343-3b092031a831?w=400",
                     4.4, 890, "Type 2 Diabetes management", "GI upset, metallic taste (rare: lactic acidosis)",
-                    "Lupin Limited", true),
+                    "Lupin Limited"),
 
                 new Product(null,
                     "Omeprazole 20mg (14 Capsules)",
@@ -59,7 +59,7 @@ public class DataInitializer {
                     78.0, "Medicines", 420,
                     "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400",
                     4.8, 1540, "Acid reflux, GERD, gastric ulcers", "Headache, diarrhoea (usually mild)",
-                    "Torrent Pharma", true),
+                    "Torrent Pharma"),
 
                 new Product(null,
                     "Ibuprofen 400mg (10 Tablets)",
@@ -67,7 +67,7 @@ public class DataInitializer {
                     30.0, "Medicines", 600,
                     "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=400",
                     4.5, 1780, "Pain, inflammation, fever", "GI upset, avoid on empty stomach",
-                    "Abbott India", true),
+                    "Abbott India"),
 
                 // ---- HEALTH SUPPLEMENTS ----
                 new Product(null,
@@ -76,7 +76,7 @@ public class DataInitializer {
                     599.0, "Health Supplements", 180,
                     "https://images.unsplash.com/photo-1607619662634-3ac55ec0e216?w=400",
                     4.8, 2340, "Bone health, immune support, heart health", "Excessive dosage may cause hypercalcemia",
-                    "HealthKart", true),
+                    "HealthKart"),
 
                 new Product(null,
                     "Omega-3 Fish Oil 1000mg (60 Capsules)",
@@ -84,7 +84,7 @@ public class DataInitializer {
                     449.0, "Health Supplements", 250,
                     "https://images.unsplash.com/photo-1622020457014-f56f3f809534?w=400",
                     4.7, 3100, "Heart health, brain function, joints", "Fishy aftertaste, mild stomach upset",
-                    "Himalaya Wellness", true),
+                    "Himalaya Wellness"),
 
                 new Product(null,
                     "Biotin 10000mcg (60 Tablets)",
@@ -92,7 +92,7 @@ public class DataInitializer {
                     349.0, "Health Supplements", 320,
                     "https://images.unsplash.com/photo-1563213126-a4273aed2016?w=400",
                     4.6, 4200, "Hair growth, nail strength, skin health", "Rare: acne breakouts at high doses",
-                    "GNC India", true),
+                    "GNC India"),
 
                 new Product(null,
                     "Whey Protein Isolate Vanilla (1kg)",
@@ -100,7 +100,7 @@ public class DataInitializer {
                     1899.0, "Health Supplements", 90,
                     "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400",
                     4.9, 5600, "Muscle recovery, lean mass, post-workout", "Excess may cause bloating",
-                    "MuscleBlaze", true),
+                    "MuscleBlaze"),
 
                 new Product(null,
                     "Multivitamin Complete (30 Tablets)",
@@ -108,7 +108,7 @@ public class DataInitializer {
                     299.0, "Health Supplements", 450,
                     "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400",
                     4.5, 1890, "Overall health, energy, immunity", "Nausea if taken on empty stomach",
-                    "Wellman", true),
+                    "Wellman"),
 
                 new Product(null,
                     "Ashwagandha KSM-66 (60 Capsules)",
@@ -116,7 +116,7 @@ public class DataInitializer {
                     399.0, "Health Supplements", 280,
                     "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400",
                     4.7, 2700, "Stress relief, energy, hormonal balance", "Rare: mild GI discomfort",
-                    "OZiva", true),
+                    "OZiva"),
 
                 // ---- PERSONAL CARE ----
                 new Product(null,
@@ -125,7 +125,7 @@ public class DataInitializer {
                     499.0, "Personal Care", 380,
                     "https://images.unsplash.com/photo-1601612628452-9e99ced43524?w=400",
                     4.7, 6100, "Pore reduction, brightening, sebum control", "May cause mild flushing initially",
-                    "Minimalist", true),
+                    "Minimalist"),
 
                 new Product(null,
                     "SPF 50 Sunscreen Gel (50g)",
@@ -133,7 +133,7 @@ public class DataInitializer {
                     345.0, "Personal Care", 500,
                     "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400",
                     4.6, 3450, "UV protection, anti-tanning, moisturizing", "Rarely causes contact allergy",
-                    "Mamaearth", true),
+                    "Mamaearth"),
 
                 new Product(null,
                     "Anti-Dandruff Shampoo (200ml)",
@@ -141,7 +141,7 @@ public class DataInitializer {
                     220.0, "Personal Care", 300,
                     "https://images.unsplash.com/photo-1617897903246-719242758050?w=400",
                     4.4, 1890, "Dandruff removal, scalp health", "Avoid eyes; may dry scalp with overuse",
-                    "Cipla Health", true),
+                    "Cipla Health"),
 
                 new Product(null,
                     "Moisturising Body Lotion (400ml)",
@@ -149,7 +149,7 @@ public class DataInitializer {
                     299.0, "Personal Care", 420,
                     "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400",
                     4.5, 2200, "Deep moisturization, skin softening", "None known for normal skin",
-                    "Nivea India", true),
+                    "Nivea India"),
 
                 new Product(null,
                     "Micellar Cleansing Water (200ml)",
@@ -157,7 +157,7 @@ public class DataInitializer {
                     350.0, "Personal Care", 260,
                     "https://images.unsplash.com/photo-1567721913486-6585f069b332?w=400",
                     4.6, 1600, "Makeup removal, gentle cleansing", "Not for rinse-free use around eyes with sensitivity",
-                    "Garnier India", true),
+                    "Garnier India"),
 
                 // ---- MEDICAL DEVICES ----
                 new Product(null,
@@ -166,7 +166,7 @@ public class DataInitializer {
                     1299.0, "Medical Devices", 75,
                     "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400",
                     4.8, 1890, "Home BP monitoring, arrhythmia detection", "Not a substitute for medical diagnosis",
-                    "Omron Healthcare", true),
+                    "Omron Healthcare"),
 
                 new Product(null,
                     "Pulse Oximeter Fingertip",
@@ -174,7 +174,7 @@ public class DataInitializer {
                     699.0, "Medical Devices", 150,
                     "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=400",
                     4.7, 3400, "Blood oxygen monitoring, pulse rate", "Not medical grade for ICU use",
-                    "Dr. Trust", true),
+                    "Dr. Trust"),
 
                 new Product(null,
                     "Digital Thermometer (Flexible Tip)",
@@ -182,7 +182,7 @@ public class DataInitializer {
                     199.0, "Medical Devices", 300,
                     "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400",
                     4.5, 2100, "Fever detection, temperature monitoring", "For external use only",
-                    "Braun India", true),
+                    "Braun India"),
 
                 new Product(null,
                     "Glucometer with 25 Test Strips",
@@ -190,7 +190,7 @@ public class DataInitializer {
                     849.0, "Medical Devices", 110,
                     "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400",
                     4.6, 1450, "Diabetes blood sugar monitoring", "Requires finger-prick blood sample",
-                    "Accu-Chek", true),
+                    "Accu-Chek"),
 
                 new Product(null,
                     "Nebulizer Machine (Compressor Type)",
@@ -198,7 +198,7 @@ public class DataInitializer {
                     2499.0, "Medical Devices", 40,
                     "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400",
                     4.8, 980, "Asthma, COPD, respiratory conditions", "Not for dry powder inhaler medicines",
-                    "Philips Healthcare", true),
+                    "Philips Healthcare"),
 
                 // ---- BABY CARE ----
                 new Product(null,
@@ -207,7 +207,7 @@ public class DataInitializer {
                     185.0, "Baby Care", 420,
                     "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400",
                     4.8, 2800, "Diaper rash prevention, skin barrier", "Avoid broken skin wounds",
-                    "Himalaya Baby", true),
+                    "Himalaya Baby"),
 
                 new Product(null,
                     "Baby Massage Oil (200ml)",
@@ -215,7 +215,7 @@ public class DataInitializer {
                     220.0, "Baby Care", 380,
                     "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=400",
                     4.7, 1900, "Bone & muscle development, skin nourishment", "Test patch for sensitive baby skin",
-                    "Johnson's Baby", true),
+                    "Johnson's Baby"),
 
                 new Product(null,
                     "Baby Vitamin D3 Drops (15ml)",
@@ -223,7 +223,7 @@ public class DataInitializer {
                     299.0, "Baby Care", 200,
                     "https://images.unsplash.com/photo-1607619662634-3ac55ec0e216?w=400",
                     4.9, 1100, "Bone health, rickets prevention", "Follow prescribed dosage strictly",
-                    "Wellbaby", true),
+                    "Wellbaby"),
 
                 new Product(null,
                     "Baby Oral Rehydration Salt Sachets",
@@ -231,7 +231,7 @@ public class DataInitializer {
                     60.0, "Baby Care", 600,
                     "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=400",
                     4.6, 750, "Rehydration after diarrhoea/vomiting", "Not for severe dehydration without doctor",
-                    "Pedialyte India", true),
+                    "Pedialyte India"),
 
                 // ---- FITNESS ----
                 new Product(null,
@@ -240,7 +240,7 @@ public class DataInitializer {
                     799.0, "Fitness", 160,
                     "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400",
                     4.8, 4300, "Strength, power output, muscle recovery", "Drink extra water; may cause water retention",
-                    "BigMuscles Nutrition", true),
+                    "BigMuscles Nutrition"),
 
                 new Product(null,
                     "Electrolyte Sports Drink Mix (400g)",
@@ -248,7 +248,7 @@ public class DataInitializer {
                     499.0, "Fitness", 200,
                     "https://images.unsplash.com/photo-1576866209830-589e1bfbaa4d?w=400",
                     4.5, 1800, "Hydration, electrolyte balance, stamina", "High sodium; not for kidney patients",
-                    "GU Energy", true),
+                    "GU Energy"),
 
                 new Product(null,
                     "BCAA 2:1:1 Powder (400g) - Tropical",
@@ -256,7 +256,7 @@ public class DataInitializer {
                     899.0, "Fitness", 130,
                     "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400",
                     4.6, 2400, "Muscle preservation, recovery, endurance", "Excessive use may affect insulin sensitivity",
-                    "Optimum Nutrition", true),
+                    "Optimum Nutrition"),
 
                 new Product(null,
                     "Fat Burner Thermogenic Capsules (60)",
@@ -264,7 +264,7 @@ public class DataInitializer {
                     749.0, "Fitness", 95,
                     "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400",
                     4.3, 1100, "Fat metabolism, energy boost, thermogenesis", "Avoid if caffeine-sensitive; not for under-18",
-                    "MusclePharm", true),
+                    "MusclePharm"),
 
                 new Product(null,
                     "Pre-Workout Powder Berry Blast (250g)",
@@ -272,7 +272,7 @@ public class DataInitializer {
                     1099.0, "Fitness", 70,
                     "https://images.unsplash.com/photo-1549476464-37392f717541?w=400",
                     4.7, 3200, "Energy, focus, endurance, pump", "May cause tingling sensation (beta-alanine flush)",
-                    "C4 India", true)
+                    "C4 India")
             );
 
             productRepository.saveAll(products);
