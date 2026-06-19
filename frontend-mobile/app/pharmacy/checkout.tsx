@@ -18,6 +18,7 @@ import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
 import { saveOrderToFirebase } from '@/services/firebaseService';
 import { syncOrderToRTDB, sanitizeEmail } from '@/services/rtdbService';
 import { getCart, clearCart, CartItem } from '@/services/cartService';
+import { getBackendUrl } from '@/utils/api';
 import { realtimeDb } from '@/lib/firebase';
 import { ref, get, set, push } from 'firebase/database';
 
@@ -69,7 +70,7 @@ export default function CheckoutScreen() {
 
   // Compliance & Checkout State
   const [prescriptionUploaded, setPrescriptionUploaded] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay' | 'qr'>('cod');
   const [legalConsent, setLegalConsent] = useState(false);
 
   // Success modal state
@@ -212,26 +213,78 @@ export default function CheckoutScreen() {
         setSuccessVisible(true);
         setPlacingOrder(false);
       } else {
-        // --- Razorpay Flow for Expo Go ---
-        Alert.alert(
-          'Online Payment',
-          `Order ID: ${orderId}\n\nNote: The native Razorpay SDK does not work inside the Expo Go app. Simulating successful payment...`,
-          [
+        // --- Real Razorpay WebView Flow ---
+        // First create a Razorpay order on the backend, then open the payment screen
+        let createOrderRes: Response;
+        try {
+          createOrderRes = await fetch(
+            getBackendUrl('/api/payment/create-order'),
             {
-              text: 'Simulate Success',
-              onPress: async () => {
-                await syncOrderToRTDB(userEmail, orderPayload);
-                await clearCart();
-                setPlacedOrder(orderPayload);
-                setSuccessVisible(true);
-                setPlacingOrder(false);
-              }
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount: activeTotal, email: userEmail }),
             }
-          ]
-        );
+          );
+        } catch (networkErr: any) {
+          throw new Error(
+            'Cannot reach the payment server. Please check your internet connection and try again.'
+          );
+        }
+
+        if (!createOrderRes.ok) {
+          let errDetail = '';
+          try { errDetail = await createOrderRes.text(); } catch {}
+          if (createOrderRes.status === 500) {
+            throw new Error(
+              'Payment service is not configured on the server.\n\nIf you are the admin, please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your Render environment variables.'
+            );
+          }
+          throw new Error(`Payment server error (${createOrderRes.status}): ${errDetail || 'Unknown error'}`);
+        }
+
+        const razorpayOrder = await createOrderRes.json();
+
+        setPlacingOrder(false);
+
+        if (paymentMethod === 'qr') {
+          // Navigate to the QR payment screen
+          router.push({
+            pathname: '/pharmacy/payment-qr',
+            params: {
+              amount: String(activeTotal),
+              email: userEmail,
+              subtotal: String(baseSubtotal),
+              discount: String(baseDiscount),
+              gst: String(baseGst),
+              deliveryFee: String(activeDeliveryFee),
+              shippingAddress: fullAddr,
+              latitude: String(address.latitude ?? ''),
+              longitude: String(address.longitude ?? ''),
+            },
+          });
+          return;
+        }
+
+        // Navigate to the payment WebView screen with all needed params
+        router.push({
+          pathname: '/pharmacy/payment',
+          params: {
+            razorpayOrderId: razorpayOrder.id,
+            amount: String(activeTotal),
+            email: userEmail,
+            subtotal: String(baseSubtotal),
+            discount: String(baseDiscount),
+            gst: String(baseGst),
+            deliveryFee: String(activeDeliveryFee),
+            shippingAddress: fullAddr,
+            latitude: String(address.latitude ?? ''),
+            longitude: String(address.longitude ?? ''),
+          },
+        });
       }
-    } catch (error) {
-      Alert.alert('Error', 'Could not complete checkout. Please try again.');
+    } catch (error: any) {
+      const message = error?.message ?? 'Could not complete checkout. Please try again.';
+      Alert.alert('Checkout Failed', message);
       setPlacingOrder(false);
     }
   };
@@ -458,7 +511,15 @@ export default function CheckoutScreen() {
             >
               <Ionicons name="card" size={24} color={paymentMethod === 'razorpay' ? Palette.secondary : Palette.textMuted} />
               <Text style={styles.speedName}>Online</Text>
-              <Text style={styles.speedSub}>UPI, Cards & Netbanking</Text>
+              <Text style={styles.speedSub}>UPI & Cards</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.speedBox, paymentMethod === 'qr' && styles.speedBoxSel]}
+              onPress={() => setPaymentMethod('qr')}
+            >
+              <Ionicons name="qr-code" size={24} color={paymentMethod === 'qr' ? Palette.secondary : Palette.textMuted} />
+              <Text style={styles.speedName}>QR Code</Text>
+              <Text style={styles.speedSub}>Scan & Pay</Text>
             </TouchableOpacity>
           </View>
         </View>
