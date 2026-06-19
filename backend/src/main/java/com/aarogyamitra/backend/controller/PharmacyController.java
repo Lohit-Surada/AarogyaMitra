@@ -166,6 +166,7 @@ public class PharmacyController {
      * Place a Cash-on-Delivery order using the user's current cart.
      * Expects: { shippingAddress, subtotal, discount, gst, deliveryFee, total, latitude?, longitude? }
      */
+    @SuppressWarnings("unchecked")
     @PostMapping("/orders/cod")
     public ResponseEntity<?> placeCodOrder(@RequestBody Map<String, Object> payload) {
         try {

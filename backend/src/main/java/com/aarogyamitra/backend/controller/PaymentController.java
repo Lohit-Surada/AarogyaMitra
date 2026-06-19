@@ -246,7 +246,6 @@ public class PaymentController {
     public ResponseEntity<Map<String, Object>> createOrder(@RequestBody Map<String, Object> payload) {
         try {
             Double amount = Double.valueOf(payload.get("amount").toString());
-            String email = (String) payload.get("email");
             String receiptId = "txn_" + UUID.randomUUID().toString().substring(0, 8);
 
             String orderResponse = paymentService.createRazorpayOrder(amount, receiptId);
@@ -270,6 +269,7 @@ public class PaymentController {
     /**
      * Verify signature endpoint
      */
+    @SuppressWarnings("unchecked")
     @PostMapping("/verify")
     public ResponseEntity<Map<String, Object>> verifyPayment(@RequestBody Map<String, Object> payload) {
         try {
@@ -372,6 +372,7 @@ public class PaymentController {
      * If paid, automatically places the order and clears the cart.
      * Returns: { paid, paymentId, orderId (if placed) }
      */
+    @SuppressWarnings("unchecked")
     @PostMapping("/qr-complete")
     public ResponseEntity<Map<String, Object>> completeQrPayment(@RequestBody Map<String, Object> payload) {
         try {

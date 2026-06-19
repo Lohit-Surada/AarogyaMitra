@@ -41,7 +41,7 @@ public class ChatbotController {
 
         try {
             logger.info("Forwarding chatbot request to service at: {}", chatEndpoint);
-            ResponseEntity<Map> serviceResp = restTemplate.postForEntity(chatEndpoint, entity, Map.class);
+            ResponseEntity<?> serviceResp = restTemplate.postForEntity(chatEndpoint, entity, Map.class);
             return ResponseEntity.ok(serviceResp.getBody());
         } catch (HttpStatusCodeException e) {
             logger.error("Chatbot service returned {}: {}", e.getStatusCode(), e.getResponseBodyAsString(), e);
