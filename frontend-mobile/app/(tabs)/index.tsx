@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { ThemedText } from '@/components/themed-text';
 import { HealthMetricCard } from '@/components/ui/HealthMetricCard';
 import { PremiumCard } from '@/components/ui/PremiumCard';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, HEADER_PADDING_TOP } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 
 export default function HomeScreen() {
@@ -40,7 +40,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <ThemedText style={styles.greeting}>Hello, {user?.email?.split('@')[0] || 'Guest'}</ThemedText>
-            <ThemedText style={styles.subtitle}>How are you feeling today?</ThemedText>
+            <ThemedText style={styles.subtitle}>Explore health insights designed for you</ThemedText>
           </View>
           <Pressable onPress={handleLogout} style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={24} color={Palette.danger} />
@@ -120,6 +120,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
+    paddingTop: HEADER_PADDING_TOP - 16,
     marginBottom: Spacing.lg,
   },
   greeting: {

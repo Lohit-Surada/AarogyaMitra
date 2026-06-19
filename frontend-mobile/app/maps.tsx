@@ -16,6 +16,8 @@ import {
   Alert,
   Linking,
   Image,
+  TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import { ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sharing from 'expo-sharing';
@@ -23,7 +25,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { MaterialIcons, Feather } from '@expo/vector-icons';
-import { Palette, Radius, Spacing } from '@/constants/theme';
+import { Palette, Radius, Spacing, HEADER_PADDING_TOP } from '@/constants/theme';
 import { Place, LatLng, PlaceType, TravelMode, TravelRouteInfo } from '@/types/maps';
 import { geolocationService } from '@/services/maps/geolocationService';
 import { googleMapsService } from '@/services/maps/googleMapsService';
@@ -32,6 +34,8 @@ import {
   sortPlacesByDistance,
 } from '@/utils/maps/mapUtils';
 import { PlaceDetails } from '../../components/maps/PlaceDetails';
+import { useAuth } from '@/lib/auth';
+import { useRouter } from 'expo-router';
 
 const TRAVEL_MODES: Array<{
   mode: TravelMode;
@@ -72,6 +76,8 @@ const getRouteLineStyle = (mode: TravelMode) => {
 
 export default function MapsScreen() {
   const mapRef = useRef<MapView>(null);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlaces>({
     hospitals: [],
@@ -306,6 +312,54 @@ export default function MapsScreen() {
   const filteredPlaces: Place[] = getFilteredPlaces();
   const hospitalCount = nearbyPlaces.hospitals.length;
   const pharmacyCount = nearbyPlaces.pharmacies.length;
+
+  // ── Auth Loading State ─────────────────────────────────────
+  if (authLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+      </SafeAreaView>
+    );
+  }
+
+  // ── Premium Gate ────────────────────────────────────────────
+  if (!user) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1, padding: 32 }}>
+          <View style={gateStyles.badge}>
+            <MaterialIcons name="location-on" size={36} color="#fff" />
+          </View>
+          <Text style={gateStyles.title}>Premium Feature</Text>
+          <Text style={gateStyles.subtitle}>
+            Nearby Care (hospitals & pharmacies map) is available exclusively for signed-in users.
+          </Text>
+          <View style={gateStyles.features}>
+            {[
+              { icon: 'local-hospital', text: 'Find hospitals near you' },
+              { icon: 'local-pharmacy', text: 'Discover nearby pharmacies' },
+              { icon: 'directions', text: 'Get turn-by-turn directions' },
+            ].map((f, i) => (
+              <View key={i} style={gateStyles.featureRow}>
+                <View style={gateStyles.featureIcon}>
+                  <MaterialIcons name={f.icon as any} size={18} color="#3B82F6" />
+                </View>
+                <Text style={gateStyles.featureText}>{f.text}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity style={gateStyles.btn} onPress={() => router.push('/login')} activeOpacity={0.85}>
+            <MaterialIcons name="login" size={20} color="#fff" />
+            <Text style={gateStyles.btnText}>Sign In to Continue</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={gateStyles.backText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  // ────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -717,7 +771,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: 'absolute',
-    top: 12,
+    top: HEADER_PADDING_TOP - 4,
     left: 12,
     right: 12,
     zIndex: 10,
@@ -1159,4 +1213,33 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 30,
   },
+});
+
+const gateStyles = StyleSheet.create({
+  badge: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 24,
+    shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+  },
+  title: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  features: { width: '100%', gap: 12, marginBottom: 32 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  featureIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  featureText: { fontSize: 14, color: '#1E293B', fontWeight: '500', flex: 1 },
+  btn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14, paddingHorizontal: 32,
+    borderRadius: 16, marginBottom: 12,
+    shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+  },
+  btnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  backText: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
 });

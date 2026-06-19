@@ -15,15 +15,17 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { SYMPTOMS_LIST } from '@/constants/symptoms';
 import { sendChatMessage } from '@/services/chatbotService';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '@/components/ui/LanguageToggle';
+import { useAuth } from '@/lib/auth';
 
 export default function DiseasePredictionScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const { user, loading: authLoading } = useAuth();
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ export default function DiseasePredictionScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          symptoms: selectedSymptoms,
+          symptoms: selectedSymptoms.map(s => s === 'fever' ? 'high_fever' : s),
         }),
         signal: controller.signal,
       });
@@ -130,6 +132,63 @@ export default function DiseasePredictionScreen() {
     });
   };
 
+  // ── Auth Loading State ─────────────────────────────────────
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={Palette.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Premium Gate ────────────────────────────────────────────
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={Palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('aiSymptomChecker')}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView contentContainerStyle={styles.gateContainer}>
+          <View style={styles.gateBadge}>
+            <Ionicons name="lock-closed" size={36} color="#fff" />
+          </View>
+          <Text style={styles.gateTitle}>Premium Feature</Text>
+          <Text style={styles.gateSubtitle}>
+            AI-powered symptom analysis is available exclusively for signed-in users.
+          </Text>
+          <View style={styles.gateFeatures}>
+            {[
+              { icon: 'analytics', text: 'AI disease prediction from symptoms' },
+              { icon: 'leaf', text: 'Personalised cure & management tips' },
+              { icon: 'language', text: 'Full Telugu language support' },
+            ].map((f, i) => (
+              <View key={i} style={styles.gateFeatureRow}>
+                <View style={styles.gateFeatureIcon}>
+                  <Ionicons name={f.icon as any} size={18} color={Palette.primary} />
+                </View>
+                <Text style={styles.gateFeatureText}>{f.text}</Text>
+              </View>
+            ))}
+          </View>
+          <TouchableOpacity style={styles.gateBtn} onPress={() => router.push('/login')} activeOpacity={0.85}>
+            <Ionicons name="person-circle-outline" size={20} color="#fff" />
+            <Text style={styles.gateBtnText}>Sign In to Continue</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.gateBackText}>Go Back</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+  // ────────────────────────────────────────────────────────────
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -149,7 +208,7 @@ export default function DiseasePredictionScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cardTitle}>{t('describeSymptoms')}</Text>
-                <Text style={styles.cardSub}>Select your symptoms from the list to receive an AI-powered preliminary analysis.</Text>
+                <Text style={styles.cardSub}>{t('describeSymptomsSub', { defaultValue: 'Select your symptoms from the list to receive an AI-powered preliminary analysis.' })}</Text>
               </View>
             </View>
 
@@ -241,12 +300,17 @@ export default function DiseasePredictionScreen() {
                   </View>
                 )}
 
-                {prediction.message && (
-                  <View style={styles.msgBox}>
-                    <Ionicons name="information-circle" size={20} color="#0284C7" />
-                    <Text style={styles.msgTxt}>{prediction.message}</Text>
-                  </View>
-                )}
+{/* Translated prediction message */}
+                <View style={styles.msgBox}>
+                  <Ionicons name="information-circle" size={20} color="#0284C7" />
+                  <Text style={styles.msgTxt}>
+                    {t('predictionMessage', {
+                      disease: t(`diseases.${prediction.disease}`, { defaultValue: prediction.disease }),
+                      confidence: (prediction.confidence * 100).toFixed(2),
+                      defaultValue: `Based on the provided symptoms, the predicted disease is ${prediction.disease} with ${(prediction.confidence * 100).toFixed(2)}% confidence. Please consult a healthcare professional for accurate diagnosis.`
+                    })}
+                  </Text>
+                </View>
               </View>
             </View>
           )}
@@ -268,12 +332,7 @@ export default function DiseasePredictionScreen() {
             </View>
           )}
 
-          <View style={styles.warningBox}>
-            <Ionicons name="warning" size={20} color="#B45309" />
-            <Text style={styles.warningTxt}>
-              {t('warningMsg') || 'This AI analysis is for informational purposes only and does not replace professional medical advice, diagnosis, or treatment. Always consult a doctor for health concerns.'}
-            </Text>
-          </View>
+
         </Animated.View>
       </ScrollView>
 
@@ -332,7 +391,7 @@ const styles = StyleSheet.create({
   
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md, paddingVertical: 12, backgroundColor: '#fff',
+    paddingHorizontal: Spacing.md, paddingTop: HEADER_PADDING_TOP, paddingBottom: 12, backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: Palette.border,
   },
   backBtn: { padding: 4 },
@@ -403,4 +462,33 @@ const styles = StyleSheet.create({
   symptomItemText: { fontSize: 16, color: Palette.text, textTransform: 'capitalize' },
   doneBtn: { backgroundColor: Palette.primary, paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center', marginTop: 16 },
   doneBtnTxt: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  // Premium Gate
+  gateContainer: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, paddingBottom: 60 },
+  gateBadge: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: Palette.primary,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.lg,
+    ...Shadows.lg,
+  },
+  gateTitle: { fontSize: 24, fontWeight: '800', color: Palette.text, marginBottom: 8, textAlign: 'center' },
+  gateSubtitle: { fontSize: 14, color: Palette.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: Spacing.xl },
+  gateFeatures: { width: '100%', gap: 12, marginBottom: Spacing.xl },
+  gateFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gateFeatureIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gateFeatureText: { fontSize: 14, color: Palette.text, fontWeight: '500', flex: 1 },
+  gateBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Palette.primary,
+    paddingVertical: 14, paddingHorizontal: 32,
+    borderRadius: Radius.lg, marginBottom: Spacing.md,
+    ...Shadows.md,
+  },
+  gateBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  gateBackText: { fontSize: 14, color: Palette.textMuted, marginTop: 4 },
 });

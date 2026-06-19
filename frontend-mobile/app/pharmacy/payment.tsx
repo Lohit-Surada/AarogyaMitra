@@ -13,7 +13,7 @@ import {
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Palette, Radius, Shadows } from '@/constants/theme';
+import { Palette, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { syncOrderToRTDB } from '@/services/rtdbService';
 import { clearCart, getCart } from '@/services/cartService';
 import { getBackendUrl } from '@/utils/api';
@@ -489,7 +489,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: 10,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',

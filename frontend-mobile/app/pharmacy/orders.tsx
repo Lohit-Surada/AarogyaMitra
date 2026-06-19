@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { subscribeToOrders } from '@/services/rtdbService';
 
 type ProductDetails = {
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md, paddingVertical: 12, backgroundColor: '#fff',
+    paddingHorizontal: Spacing.md, paddingTop: HEADER_PADDING_TOP, paddingBottom: 12, backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: Palette.border,
   },
   backBtn: { padding: 4 },

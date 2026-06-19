@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { ThemedText } from '@/components/themed-text';
 import { PremiumCard } from '@/components/ui/PremiumCard';
 import LanguageToggle from '@/components/ui/LanguageToggle';
-import { Palette, Spacing } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useTranslation } from 'react-i18next';
 
@@ -84,6 +84,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: Spacing.xl,
+    paddingTop: HEADER_PADDING_TOP,
   },
   avatar: {
     width: 80,

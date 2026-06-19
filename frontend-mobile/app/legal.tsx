@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Palette, Spacing, Radius } from '@/constants/theme';
+import { Palette, Spacing, Radius, HEADER_PADDING_TOP } from '@/constants/theme';
 
 export default function LegalScreen() {
   const router = useRouter();
@@ -57,7 +57,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
+    paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: Palette.border,

@@ -16,7 +16,7 @@ import {
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getBackendUrl } from '@/utils/api';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { realtimeDb } from '@/lib/firebase';
 import { ref, onValue, off } from 'firebase/database';
 
@@ -369,7 +369,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Palette.primary,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 14,
+    paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: 14,
     gap: 12,
   },
   backBtn: { padding: 4 },

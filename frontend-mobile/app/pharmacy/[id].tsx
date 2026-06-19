@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/lib/auth';
 import { getBackendUrl } from '@/utils/api';
 import { addToCart } from '@/services/cartService';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 import { trackProductView, logEvent } from '@/services/rtdbService';
 
 type Product = {
@@ -324,7 +324,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
+    paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Palette.border,
   },

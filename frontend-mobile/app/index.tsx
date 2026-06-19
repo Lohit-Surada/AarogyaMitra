@@ -12,6 +12,7 @@ import {
   StatusBar,
   Image,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,7 +20,7 @@ import * as Location from 'expo-location';
 import { useAuth } from '@/lib/auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 
 type ServiceItem = {
   id: string;
@@ -29,6 +30,7 @@ type ServiceItem = {
   color: string;
   bgColor: string;
   route: string;
+  requiresAuth?: boolean;
 };
 
 const SERVICES: ServiceItem[] = [
@@ -49,6 +51,7 @@ const SERVICES: ServiceItem[] = [
     color: '#10B981',
     bgColor: '#D1FAE5',
     route: '/disease-prediction',
+    requiresAuth: true,
   },
   {
     id: 'maps',
@@ -58,6 +61,7 @@ const SERVICES: ServiceItem[] = [
     color: '#F59E0B',
     bgColor: '#FEF3C7',
     route: '/maps',
+    requiresAuth: true,
   },
   {
     id: 'pharmacy',
@@ -93,6 +97,7 @@ export default function HomeScreen() {
     city: string;
   } | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -243,8 +248,8 @@ export default function HomeScreen() {
           <View style={styles.greetingBanner}>
             <View style={styles.greetingLeft}>
               <Text style={styles.greetingText}>{greeting},</Text>
-              <Text style={styles.greetingName}>{firstName} 👋</Text>
-              <Text style={styles.greetingSubtitle}>How are you feeling today?</Text>
+              <Text style={styles.greetingName}>{firstName}</Text>
+              <Text style={styles.greetingSubtitle}>Explore health insights designed for you</Text>
             </View>
             
             {weatherLoading ? (
@@ -288,13 +293,24 @@ export default function HomeScreen() {
               <Pressable
                 key={svc.id}
                 style={({ pressed }) => [styles.serviceCard, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                onPress={() => router.push(svc.route as any)}
+                onPress={() => {
+                  if (svc.requiresAuth && !user) {
+                    router.push('/login');
+                  } else {
+                    router.push(svc.route as any);
+                  }
+                }}
               >
                 <View style={[styles.serviceIconWrap, { backgroundColor: svc.bgColor }]}>
                   <Ionicons name={svc.icon} size={28} color={svc.color} />
                 </View>
                 <Text style={styles.serviceTitle}>{svc.title}</Text>
                 <Text style={styles.serviceSubtitle}>{svc.subtitle}</Text>
+                {svc.requiresAuth && !user && (
+                  <View style={styles.lockBadge}>
+                    <Ionicons name="lock-closed" size={10} color="#fff" />
+                  </View>
+                )}
               </Pressable>
             ))}
           </View>
@@ -320,13 +336,57 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── Emergency Banner ── */}
-          <View style={styles.emergencyBanner}>
-            <Ionicons name="alert-circle" size={22} color={Palette.danger} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.emergencyTitle}>Medical Emergency?</Text>
-              <Text style={styles.emergencyText}>Dial 112 immediately for ambulance services.</Text>
-            </View>
+          {/* ── Emergency Help ── */}
+          <View style={styles.emergencySection}>
+            <TouchableOpacity 
+              style={styles.emergencyHeaderBtn}
+              onPress={() => setShowEmergency(!showEmergency)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.emergencyHeaderRow}>
+                <Ionicons name="alert-circle" size={20} color="#E11D48" />
+                <Text style={styles.emergencyTitle}>Medical Emergency?</Text>
+              </View>
+              <Ionicons name={showEmergency ? "chevron-up" : "chevron-down"} size={20} color="#E11D48" />
+            </TouchableOpacity>
+
+            {showEmergency && (
+              <View style={styles.emergencyContent}>
+                <Text style={styles.emergencySubtitle}>Tap any number to dial immediately.</Text>
+
+                <View style={styles.emergencyBtnContainer}>
+                  <TouchableOpacity style={styles.emergencyBtn} onPress={() => Linking.openURL('tel:108')}>
+                    <View style={styles.emergencyIconWrap}>
+                      <MaterialCommunityIcons name="ambulance" size={18} color="#E11D48" />
+                    </View>
+                    <View style={styles.emergencyBtnTextWrap}>
+                      <Text style={styles.emergencyBtnNum}>108</Text>
+                      <Text style={styles.emergencyBtnLabel}>Ambulance</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.emergencyBtn} onPress={() => Linking.openURL('tel:112')}>
+                    <View style={styles.emergencyIconWrap}>
+                      <Ionicons name="call" size={18} color="#E11D48" />
+                    </View>
+                    <View style={styles.emergencyBtnTextWrap}>
+                      <Text style={styles.emergencyBtnNum}>112</Text>
+                      <Text style={styles.emergencyBtnLabel}>National Help</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.emergencyBtn} onPress={() => Linking.openURL('tel:104')}>
+                    <View style={styles.emergencyIconWrap}>
+                      <Ionicons name="information-circle" size={18} color="#E11D48" />
+                    </View>
+                    <View style={styles.emergencyBtnTextWrap}>
+                      <Text style={styles.emergencyBtnNum}>104</Text>
+                      <Text style={styles.emergencyBtnLabel}>Health Info</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* ── Sign In Prompt (for guests) ── */}
@@ -359,6 +419,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.md,
+    paddingTop: HEADER_PADDING_TOP - 16,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoBadge: {
@@ -419,13 +480,13 @@ const styles = StyleSheet.create({
   greetingIcon: { marginLeft: 8 },
   weatherContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: Spacing.sm,
-    minWidth: 80,
+    minWidth: 100,
   },
   weatherRow: {
     flexDirection: 'row',
@@ -433,29 +494,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weatherIconImage: {
-    width: 28,
-    height: 28,
-    marginRight: 2,
+    width: 36,
+    height: 36,
+    marginRight: 4,
   },
   weatherTemp: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '800',
     color: '#fff',
   },
   weatherDesc: {
-    fontSize: 10,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
     textTransform: 'capitalize',
-    marginTop: 1,
+    marginTop: 2,
     textAlign: 'center',
   },
   weatherCity: {
-    fontSize: 10,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.7)',
-    marginTop: 1,
+    marginTop: 2,
     textAlign: 'center',
-    maxWidth: 75,
+    maxWidth: 90,
   },
 
   // Health Tip
@@ -516,6 +577,17 @@ const styles = StyleSheet.create({
   },
   serviceTitle: { fontSize: 15, fontWeight: '700', color: Palette.text },
   serviceSubtitle: { fontSize: 12, color: Palette.textMuted, marginTop: 2 },
+  lockBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#94A3B8',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   // Quick Actions
   quickActions: { flexDirection: 'row', gap: 12, marginBottom: Spacing.md },
@@ -534,20 +606,55 @@ const styles = StyleSheet.create({
   quickBtnGreen: { borderColor: '#10B981', backgroundColor: '#D1FAE5' },
   quickBtnText: { fontSize: 13, fontWeight: '700', color: Palette.primary },
 
-  // Emergency
-  emergencyBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: '#FEE2E2',
-    borderRadius: Radius.md,
+  // Emergency Section
+  emergencySection: {
+    backgroundColor: '#FFF1F2', // very light rose
+    borderRadius: Radius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: '#FFE4E6',
   },
-  emergencyTitle: { fontSize: 14, fontWeight: '700', color: '#991B1B' },
-  emergencyText: { fontSize: 12, color: '#B91C1C', marginTop: 2 },
+  emergencyHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  emergencyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emergencyContent: {
+    marginTop: Spacing.sm,
+  },
+  emergencyTitle: { fontSize: 16, fontWeight: '800', color: '#BE123C' },
+  emergencySubtitle: { fontSize: 12, color: '#E11D48', marginBottom: Spacing.md },
+  emergencyBtnContainer: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  emergencyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: Radius.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  emergencyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFE4E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  emergencyBtnTextWrap: { flex: 1 },
+  emergencyBtnNum: { fontSize: 15, fontWeight: '800', color: '#9F1239' },
+  emergencyBtnLabel: { fontSize: 12, color: '#BE123C', fontWeight: '500' },
 
   // Login Prompt
   loginPrompt: {

@@ -15,7 +15,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Palette, Spacing, Radius } from '@/constants/theme';
+import { Palette, Spacing, Radius, HEADER_PADDING_TOP } from '@/constants/theme';
 
 const USER = 'user' as const;
 const BOT = 'bot' as const;
@@ -285,7 +285,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
+    paddingTop: HEADER_PADDING_TOP,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: Palette.border,

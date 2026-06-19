@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/lib/auth';
 import { getBackendUrl, authenticatedFetch } from '@/utils/api';
+import { HEADER_PADDING_TOP } from '@/constants/theme';
 
 type Address = {
   id: number;
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: HEADER_PADDING_TOP,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,

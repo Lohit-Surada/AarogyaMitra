@@ -1,7 +1,11 @@
 /**
  * AarogyaMitra Premium Health-Tech Theme
  */
-import { Platform } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
+
+// Ensures the header always sits below the system status bar / notch on every device.
+// The extra +6 gives 1.5px additional visual breathing room as requested.
+export const HEADER_PADDING_TOP = (StatusBar.currentHeight ?? 0) + 6;
 
 const tintColorLight = '#0B5A80'; // Deep Blue
 const tintColorDark = '#38Bdf8';

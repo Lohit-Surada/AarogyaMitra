@@ -15,7 +15,7 @@ import { useAuth } from '@/lib/auth';
 import { realtimeDb } from '@/lib/firebase';
 import { ref, get } from 'firebase/database';
 import { sanitizeEmail } from '@/services/rtdbService';
-import { Palette, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Palette, Spacing, Radius, Shadows, HEADER_PADDING_TOP } from '@/constants/theme';
 
 type ProductDetails = {
   id: number;
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md, paddingVertical: 12, backgroundColor: '#fff',
+    paddingHorizontal: Spacing.md, paddingTop: HEADER_PADDING_TOP, paddingBottom: 12, backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: Palette.border,
   },
   backBtn: { padding: 4 },
